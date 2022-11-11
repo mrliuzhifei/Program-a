@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "BC3602_SPI.C": "cpp",
+        "bc3602_config_table.h": "c"
+    }
+}

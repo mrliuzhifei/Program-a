@@ -1,0 +1,567 @@
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE SHTC3
+OBJECT MODULE PLACED IN .\Output\SHTC3.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\..\..\UserCode\User\src\SHTC3.c LARGE OPTIMIZE(7,SPEED) BROWSE INCDIR
+                    -(..\..\..\UserCode\Device\Include;..\..\..\UserCode\StdDriver\inc;..\..\..\UserCode\User\ins;..\..\..\UserCode\StdDriver
+                    -\src;..\..\..\UserCode\StdDriver\lib) DEBUG OBJECTEXTEND PRINT(.\LST\SHTC3.lst) TABS(2) OBJECT(.\Output\SHTC3.obj)
+
+line level    source
+
+   1          #include "ML51.h"
+   2          
+   3          typedef enum SHTC3_Sta_s  //???????
+   4          {
+   5             Sleep,
+   6             Wakeup,
+   7             Mesured,
+   8             Readstart,
+   9             Readover,
+  10          }SHTC3_Sta_s;
+  11          
+  12          typedef struct SHTC3_Data_t
+  13          {
+  14           uint8_t CmdBuf [2];
+  15           uint8_t ReadBuf[6];
+  16           SHTC3_Sta_s  SHTC3_Sta;
+  17           uint16_t Temp_value;
+  18           uint16_t Temp_value_mid; 
+  19           uint16_t Hub_value;
+  20           uint8_t crc8;  
+  21           uint8_t OverTimeStartCount;  //��ʼ����Ƿ�ʱ
+  22           uint8_t TimeIsOver;
+  23           uint8_t ThisPositiveTemp;
+  24          }SHTC3_Data_t;
+  25          
+  26          SHTC3_Data_t SHTC3_Data;
+  27          #define JBE SHTC3_Data
+  28          
+  29          void Init_SHTC3(void)
+  30          {
+  31   1      JBE.SHTC3_Sta=Sleep;
+  32   1      }
+  33          //========================================================================================================
+  34          
+  35          
+  36          //========================================================================================================
+  37          void I2C_Error(void)
+  38          {
+  39   1         // while (1);    
+  40   1        //Get_TempHut();
+  41   1      }
+  42          //========================================================================================================
+  43          
+  44          //--------------------------------------------------------------------------------------------
+  45          
+  46          //--------------------------------------------------------------------------------------------
+  47          /*��������ģʽ*/
+  48          void I2C_Write(UINT8 *pbuf,UINT8 len )
+  49          {
+  50   1           unsigned char  u8Count;
+  51   1           
+  52   1          /* Write Step1 */
+  53   1          set_I2C0CON_STA;                                      /*STA��1λ��������ģʽ���
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 2   
+
+             -���������ʼ�źţ������ʼ�źŷ��ͳɹ���SI ��1*/                            
+             -    /* Send Start bit to I2C EEPROM */
+  54   1          clr_I2C0CON_SI;
+  55   1          while (!(I2C0CON&SET_BIT3))//;                          /*SI��1˵����ʼ�źŷ��ͳɹ�
+             -*/                            /*Check SI set or not  */
+  56   1           {
+  57   2           JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+  58   2           if(JBE.TimeIsOver==True)            //�����ʱ��
+  59   2           {
+  60   3            JBE.OverTimeStartCount=False;
+  61   3            JBE.TimeIsOver=False;
+  62   3            I2C_Error(); 
+  63   3            return;      
+  64   3           }
+  65   2           }
+  66   1           JBE.OverTimeStartCount=False;
+  67   1           JBE.TimeIsOver=False;
+  68   1          if (I2C0STAT != 0x08)                                 /*״̬��Ϊ0x08��ʱ��˵����ʼ�
+             -��źŷ��ͳɹ�*/                /*Check status value after every step   */
+  69   1              I2C_Error();
+  70   1          /*���ʹӻ���ַ��д��־*/
+  71   1          /* Write Step2 */
+  72   1          clr_I2C0CON_STA;                                      /*STA=0*/
+  73   1          I2C0DAT = (I2C_SLAVE_ADDRESS | I2C_WR);
+  74   1          clr_I2C0CON_SI;
+  75   1         // while (!(I2C0CON&SET_BIT3));                          /*Check SI set or not */
+  76   1          while (!(I2C0CON&SET_BIT3))//;                          /*SI��1˵����ʼ�źŷ��ͳɹ�*
+             -/                            /*Check SI set or not  */
+  77   1           {
+  78   2           JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+  79   2           if(JBE.TimeIsOver==True)            //�����ʱ��
+  80   2           {
+  81   3            JBE.OverTimeStartCount=False;
+  82   3            JBE.TimeIsOver=False;
+  83   3            I2C_Error(); 
+  84   3            return;      
+  85   3           }
+  86   2           }
+  87   1           JBE.OverTimeStartCount=False;
+  88   1           JBE.TimeIsOver=False;
+  89   1          if (I2C0STAT != 0x18)                                 /*�ӻ���ַ�ѷ����յ���Ӧ
+             -��״̬Ϊ0x18*/
+  90   1              I2C_Error();
+  91   1      
+  92   1          /* Write Step3 */
+  93   1          for (u8Count = 0; u8Count < len; u8Count++)     /*ѭ�������Զ�������*/
+  94   1          {
+  95   2             
+  96   2              I2C0DAT = *pbuf;
+  97   2              pbuf++;
+  98   2              clr_I2C0CON_SI;
+  99   2             // while (!(I2C0CON&SET_BIT3));                       /*Check SI set or not*/
+ 100   2                while (!(I2C0CON&SET_BIT3))//;                          /*SI��1˵����ʼ�źŷ��ͳ�
+             -��*/                            /*Check SI set or not  */
+ 101   2                 {
+ 102   3                 JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+ 103   3                 if(JBE.TimeIsOver==True)            //�����ʱ��
+ 104   3                 {
+ 105   4                  JBE.OverTimeStartCount=False;
+ 106   4                  JBE.TimeIsOver=False;
+ 107   4                  I2C_Error(); 
+ 108   4                  return;      
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 3   
+
+ 109   4                 }
+ 110   3                 }
+ 111   2                 JBE.OverTimeStartCount=False;
+ 112   2                 JBE.TimeIsOver=False;
+ 113   2              if (I2C0STAT != 0x28)
+ 114   2                  I2C_Error();
+ 115   2          }
+ 116   1      
+ 117   1          /* Write Step4 */
+ 118   1          set_I2C0CON_STO;    /*ֹͣ��־λ������ģʽ������Ϊ1ʱ�����߷��
+             -���ֹͣ�ź�*/
+ 119   1          clr_I2C0CON_SI;
+ 120   1         // while (I2C0CON&SET_BIT4); 
+ 121   1            while (!(I2C0CON&SET_BIT4))//;                          /*SI��1˵����ʼ�źŷ��ͳɹ�
+             -�*/                            /*Check SI set or not  */
+ 122   1                 {
+ 123   2                 JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+ 124   2                 if(JBE.TimeIsOver==True)            //�����ʱ��
+ 125   2                 {
+ 126   3                  JBE.OverTimeStartCount=False;
+ 127   3                  JBE.TimeIsOver=False;
+ 128   3                  I2C_Error(); 
+ 129   3                  return;      
+ 130   3                 }
+ 131   2                 }
+ 132   1                 JBE.OverTimeStartCount=False;
+ 133   1                 JBE.TimeIsOver=False;
+ 134   1      
+ 135   1      }
+ 136          
+ 137          void I2C_Read(UINT8 *pbuf,len)
+ 138          {
+ 139   1          unsigned char  u8Count;
+ 140   1          /* Read Step1 */
+ 141   1          set_I2C0CON_STA;
+ 142   1          clr_I2C0CON_SI;          
+ 143   1         // while (!(I2C0CON&SET_BIT3));                                //Check SI set or not
+ 144   1          while (!(I2C0CON&SET_BIT3))//;                          /*SI��1˵����ʼ�źŷ��ͳɹ�
+             -*/                            /*Check SI set or not  */
+ 145   1           {
+ 146   2           JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+ 147   2           if(JBE.TimeIsOver==True)            //�����ʱ��
+ 148   2           {
+ 149   3            JBE.OverTimeStartCount=False;
+ 150   3            JBE.TimeIsOver=False;
+ 151   3            I2C_Error(); 
+ 152   3            return;      
+ 153   3           }
+ 154   2           }
+ 155   1           JBE.OverTimeStartCount=False;
+ 156   1           JBE.TimeIsOver=False;
+ 157   1        if (I2C0STAT != 0x08)                         /*��ʼλ���ͳɹ�*///Check status value after ev
+             -ery step
+ 158   1              I2C_Error();
+ 159   1      
+ 160   1          /* Step13 */
+ 161   1          clr_I2C0CON_STA;                                    //STA needs to be cleared after START codition is 
+             -generated
+ 162   1          I2C0DAT = (I2C_SLAVE_ADDRESS | I2C_RD);       /*���ʹӻ���ַ���Ͷ���־λ*/
+ 163   1          clr_I2C0CON_SI;
+ 164   1          //while (!(I2C0CON&SET_BIT3));                                //Check SI set or not
+ 165   1          while (!(I2C0CON&SET_BIT3))//;                          /*SI��1˵����ʼ�źŷ��ͳɹ�
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 4   
+
+             -*/                            /*Check SI set or not  */
+ 166   1           {
+ 167   2           JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+ 168   2           if(JBE.TimeIsOver==True)            //�����ʱ��
+ 169   2           {
+ 170   3            JBE.OverTimeStartCount=False;
+ 171   3            JBE.TimeIsOver=False;
+ 172   3            I2C_Error(); 
+ 173   3            return;      
+ 174   3           }
+ 175   2           }
+ 176   1           JBE.OverTimeStartCount=False;
+ 177   1           JBE.TimeIsOver=False;
+ 178   1        if (I2C0STAT != 0x40)                         /*���ͳɹ��յ��ӻ�Ӧ��*/
+ 179   1              I2C_Error();
+ 180   1          
+ 181   1          /* Step14 */
+ 182   1          for (u8Count = 0; u8Count <len; u8Count++)
+ 183   1          {
+ 184   2              set_I2C0CON_AA;
+ 185   2              clr_I2C0CON_SI;        
+ 186   2             //while (!(I2C0CON&SET_BIT3));                            //Check SI set or not
+ 187   2               while (!(I2C0CON&SET_BIT3))//;                          /*SI��1˵����ʼ�źŷ���
+             -�ɹ�*/                            /*Check SI set or not  */
+ 188   2                 {
+ 189   3                 JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+ 190   3                 if(JBE.TimeIsOver==True)            //�����ʱ��
+ 191   3                 {
+ 192   4                  JBE.OverTimeStartCount=False;
+ 193   4                  JBE.TimeIsOver=False;
+ 194   4                  I2C_Error(); 
+ 195   4                  return;      
+ 196   4                 }
+ 197   3                 }
+ 198   2                 JBE.OverTimeStartCount=False;
+ 199   2                 JBE.TimeIsOver=False;
+ 200   2              if (I2C0STAT != 0x50)              
+ 201   2                  I2C_Error();
+ 202   2              
+ 203   2              // if (I2C0DAT != u8DAT)             
+ 204   2              //    I2C_Error();
+ 205   2              *pbuf=I2C0DAT;
+ 206   2               pbuf++;
+ 207   2          } 
+ 208   1          
+ 209   1          /* Step15 */
+ 210   1          clr_I2C0CON_AA;
+ 211   1          clr_I2C0CON_SI;
+ 212   1          //while (!(I2C0CON&SET_BIT3));                                //Check SI set or not
+ 213   1            while (!(I2C0CON&SET_BIT3))//;                          /*SI��1˵����ʼ�źŷ��ͳɹ�
+             -�*/                            /*Check SI set or not  */
+ 214   1                 {
+ 215   2                 JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+ 216   2                 if(JBE.TimeIsOver==True)            //�����ʱ��
+ 217   2                 {
+ 218   3                  JBE.OverTimeStartCount=False;
+ 219   3                  JBE.TimeIsOver=False;
+ 220   3                  I2C_Error(); 
+ 221   3                  return;      
+ 222   3                 }
+ 223   2                 }
+ 224   1                 JBE.OverTimeStartCount=False;
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 5   
+
+ 225   1                 JBE.TimeIsOver=False;
+ 226   1          if (I2C0STAT != 0x58)
+ 227   1              I2C_Error();
+ 228   1      
+ 229   1          /* Step16 */
+ 230   1          set_I2C0CON_STO;
+ 231   1          clr_I2C0CON_SI;
+ 232   1         //while (I2C0CON&SET_BIT4);                                /* Check STOP signal */ 
+ 233   1            while (!(I2C0CON&SET_BIT4))//;                          /* SI��1˵����ʼ�źŷ��ͳɹ�
+             -��*/                            /*Check SI set or not  */
+ 234   1                 {
+ 235   2                 JBE.OverTimeStartCount=True;    //��ʼ����Ƿ�ʱ
+ 236   2                 if(JBE.TimeIsOver==True)            //�����ʱ��
+ 237   2                 {
+ 238   3                  JBE.OverTimeStartCount=False;
+ 239   3                  JBE.TimeIsOver=False;
+ 240   3                  I2C_Error(); 
+ 241   3                  return;      
+ 242   3                 }
+ 243   2                 }
+ 244   1                 JBE.OverTimeStartCount=False;
+ 245   1                 JBE.TimeIsOver=False;
+ 246   1      }
+ 247          
+ 248          void Init_I2C(void)
+ 249          {
+ 250   1          MFP_P53_I2C0_SCL;
+ 251   1          P53_OPENDRAIN_MODE ;          // Modify SCL pin to Open drain mode. don't forget the pull high resiste
+             -r in circuit
+ 252   1          MFP_P52_I2C0_SDA;
+ 253   1          P52_OPENDRAIN_MODE ;          // Modify SDA pin to Open drain mode. don't forget the pull high resiste
+             -r in circuit
+ 254   1      
+ 255   1          SFRS = 0;
+ 256   1          /* Set I2C clock rate */
+ 257   1          I2C0CLK = I2C_CLOCK; 
+ 258   1      
+ 259   1          /* Enable I2C */
+ 260   1          set_I2C0CON_I2CEN;  
+ 261   1         
+ 262   1          JBE.CmdBuf [0]=0x80;                                                                                  
+             -                                                                                   
+ 263   1          JBE.CmdBuf [1]=0x5D;
+ 264   1          I2C_Write(&JBE.CmdBuf,sizeof(JBE.CmdBuf));  
+ 265   1          JBE.SHTC3_Sta=Sleep;
+ 266   1          JBE.CmdBuf [0]=0x35;     //˯��ģʽ�·��ͻ�������0x3517                         
+             -                                                                                                                        
+             -                  
+ 267   1          JBE.CmdBuf [1]=0x17;
+ 268   1          I2C_Write(&JBE.CmdBuf,sizeof(JBE.CmdBuf));
+ 269   1      }
+ 270          
+ 271          
+ 272          void Get_TempHut(void)
+ 273          {
+ 274   1       #ifdef test
+                
+                JBE.CmdBuf [0]=0x35;     //˯��ģʽ�·��ͻ�������0x3517                          
+             -                                                                                                                        
+             -                 
+                JBE.CmdBuf [1]=0x17;
+                I2C_Write(&JBE.CmdBuf,sizeof(JBE.CmdBuf));
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 6   
+
+                
+                JBE.CmdBuf [0]=0xEF;     //���Ͷ�ȡID������0xEFC8   ����i2c��ͨ��    
+             -                                                                                                                        
+             -                               
+                JBE.CmdBuf [1]=0xC8;
+                I2C_Write(&JBE.CmdBuf,sizeof(JBE.CmdBuf));
+                I2C_Read(&JBE.ReadBuf,3);
+              //  printf("\n READ ID!");
+                
+               #else  
+ 287   1       if(JBE.SHTC3_Sta==Sleep)
+ 288   1       {
+ 289   2        JBE.CmdBuf [0]=0x35;     //˯��ģʽ�·��ͻ�������0x3517                          
+             -                                                                                                                        
+             -                 
+ 290   2        JBE.CmdBuf [1]=0x17;
+ 291   2        I2C_Write(&JBE.CmdBuf,sizeof(JBE.CmdBuf));
+ 292   2        JBE.SHTC3_Sta=Wakeup;
+ 293   2       }
+ 294   1       else if(JBE.SHTC3_Sta== Wakeup)
+ 295   1       {
+ 296   2        JBE.CmdBuf [0]=0x7c;     //�����Ժ���0x7CA2ѡ����ͨģʽ���߾��ȶ�ȡ
+ 297   2        JBE.CmdBuf [1]=0xa2;
+ 298   2        I2C_Write(&JBE.CmdBuf,sizeof(JBE.CmdBuf));
+ 299   2        JBE.SHTC3_Sta=Mesured;
+ 300   2       }
+ 301   1       else if(JBE.SHTC3_Sta== Mesured)
+ 302   1       {
+ 303   2         static unsigned char  DelayTime;
+ 304   2         DelayTime++;
+ 305   2         if(DelayTime>MeasurDlayTime)
+ 306   2         {
+ 307   3         DelayTime=0;
+ 308   3         JBE.SHTC3_Sta=Readstart;
+ 309   3         }
+ 310   2       }
+ 311   1       else if(JBE.SHTC3_Sta== Readstart)
+ 312   1       {
+ 313   2          I2C_Read(&JBE.ReadBuf,sizeof(JBE.ReadBuf));
+ 314   2          JBE.SHTC3_Sta=Readover; 
+ 315   2          JBE.crc8=crc8_nrsc5(&JBE.ReadBuf[0],2);
+ 316   2          JBE.crc8=crc8_nrsc5(&JBE.ReadBuf[3],2);
+ 317   2         if(crc8_nrsc5(&JBE.ReadBuf[0],2)==JBE.ReadBuf[2]&&crc8_nrsc5(&JBE.ReadBuf[3],2)==JBE.ReadBuf[5])
+ 318   2         {
+ 319   3         JBE.Temp_value_mid=JBE.ReadBuf[0];
+ 320   3         JBE.Temp_value_mid=JBE.Temp_value_mid<<8;
+ 321   3         JBE.Temp_value_mid=JBE.Temp_value_mid+JBE.ReadBuf[1];
+ 322   3         
+ 323   3         
+ 324   3         JBE.Temp_value_mid=(float)JBE.Temp_value_mid/65536*175*10;
+ 325   3        // JBE.Temp_value_mid=240; 
+ 326   3         if(JBE.Temp_value_mid>=450)                                  //˵����õ������¶�
+ 327   3         {
+ 328   4         JBE.Temp_value_mid=JBE.Temp_value_mid-450;    
+ 329   4         JBE.ThisPositiveTemp=True;
+ 330   4         }
+ 331   3         else 
+ 332   3         {
+ 333   4         JBE.Temp_value_mid=450-JBE.Temp_value_mid;
+ 334   4         JBE.ThisPositiveTemp=False;
+ 335   4         }
+ 336   3         
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 7   
+
+ 337   3         JBE.Temp_value=JBE.Temp_value_mid;//(JBE.Temp_value_mid-((GET_NtcTEMP()+5-JBE.Temp_value_mid)));
+ 338   3           
+ 339   3         JBE.Hub_value=JBE.ReadBuf[3];
+ 340   3         JBE.Hub_value=JBE.Hub_value<<8;
+ 341   3         JBE.Hub_value=JBE.Hub_value+JBE.ReadBuf[4];
+ 342   3         JBE.Hub_value=(float)JBE.Hub_value/65536*100;   
+ 343   3         }
+ 344   2        
+ 345   2         //LCD_Display_TempHub(JBE.Hub_value,HUB);
+ 346   2       }
+ 347   1       else if(JBE.SHTC3_Sta== Readover)
+ 348   1       {
+ 349   2        JBE.CmdBuf [0]=0xB0;
+ 350   2        JBE.CmdBuf [1]=0x98;
+ 351   2        I2C_Write(&JBE.CmdBuf,sizeof(JBE.CmdBuf));
+ 352   2        JBE.SHTC3_Sta=Sleep;
+ 353   2        Clr__TempHutStartFlag();            //��ʪ�Ȳ���������־���㣬�ȴ���
+             -�һ�뿪��
+ 354   2       }
+ 355   1       #endif
+ 356   1       
+ 357   1      }
+ 358          void I2C_Write_Process(UINT8 u8DAT)
+ 359          {
+ 360   1          unsigned char  u8Count;
+ 361   1          /* Write Step1 */
+ 362   1          set_I2C0CON_STA;                                      /*STA��1λ��������ģʽ���
+             -���������ʼ�źţ������ʼ�źŷ��ͳɹ���SI ��1*/                            
+             -    /* Send Start bit to I2C EEPROM */
+ 363   1          clr_I2C0CON_SI;
+ 364   1          while (!(I2C0CON&SET_BIT3));                          /*SI��1˵����ʼ�źŷ��ͳɹ�*/
+             -                            /*Check SI set or not  */
+ 365   1          if (I2C0STAT != 0x08)                                 /*״̬��Ϊ0x08��ʱ��˵����ʼ�
+             -��źŷ��ͳɹ�*/                /*Check status value after every step   */
+ 366   1              I2C_Error();
+ 367   1          /*���ʹӻ���ַ��д��־*/
+ 368   1          /* Write Step2 */
+ 369   1          clr_I2C0CON_STA;                                      /*STA=0*/
+ 370   1          I2C0DAT = (I2C_SLAVE_ADDRESS | I2C_WR);
+ 371   1          clr_I2C0CON_SI;
+ 372   1          while (!(I2C0CON&SET_BIT3));                          /*Check SI set or not */
+ 373   1          if (I2C0STAT != 0x18)                                 /*�ӻ���ַ�ѷ����յ���Ӧ
+             -��״̬Ϊ0x18*/
+ 374   1              I2C_Error();
+ 375   1      
+ 376   1          /* Write Step3 */
+ 377   1          for (u8Count = 0; u8Count < LOOP_SIZE; u8Count++)     /*ѭ�������Զ�������
+             -*/
+ 378   1          {
+ 379   2              I2C0DAT = u8DAT;
+ 380   2              clr_I2C0CON_SI;
+ 381   2              while (!(I2C0CON&SET_BIT3));                       /*Check SI set or not*/
+ 382   2              if (I2C0STAT != 0x28)
+ 383   2                  I2C_Error();
+ 384   2      
+ 385   2              u8DAT = ~u8DAT;
+ 386   2          }
+ 387   1      
+ 388   1          /* Write Step4 */
+ 389   1          set_I2C0CON_STO;    /*ֹͣ��־λ������ģʽ������Ϊ1ʱ�����߷��
+             -���ֹͣ�ź�*/
+ 390   1          clr_I2C0CON_SI;
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 8   
+
+ 391   1          while (I2C0CON&SET_BIT4);                               /* Check STOP signal */
+ 392   1      }
+ 393            
+ 394          //--------------------------------------------------------------------------------------------
+ 395          //----  Page Read ----------------------------------------------------------------------------
+ 396          //--------------------------------------------------------------------------------------------
+ 397          void I2C_Read_Process(UINT8 u8DAT)
+ 398          {
+ 399   1          unsigned char  u8Count;
+ 400   1          /* Read Step1 */
+ 401   1          set_I2C0CON_STA;
+ 402   1          clr_I2C0CON_SI;          
+ 403   1          while (!(I2C0CON&SET_BIT3));                                //Check SI set or not
+ 404   1          if (I2C0STAT != 0x08)                         /*��ʼλ���ͳɹ�*///Check status value after 
+             -every step
+ 405   1              I2C_Error();
+ 406   1      
+ 407   1          /* Step13 */
+ 408   1          clr_I2C0CON_STA;                                    //STA needs to be cleared after START codition is 
+             -generated
+ 409   1          I2C0DAT = (I2C_SLAVE_ADDRESS | I2C_RD);       /*���ʹӻ���ַ���Ͷ���־λ*/
+ 410   1          clr_I2C0CON_SI;
+ 411   1          while (!(I2C0CON&SET_BIT3));                                //Check SI set or not
+ 412   1        if (I2C0STAT != 0x40)                         /*���ͳɹ��յ��ӻ�Ӧ��*/
+ 413   1              I2C_Error();
+ 414   1          
+ 415   1          /* Step14 */
+ 416   1          for (u8Count = 0; u8Count <LOOP_SIZE; u8Count++)
+ 417   1          {
+ 418   2              set_I2C0CON_AA;
+ 419   2              clr_I2C0CON_SI;        
+ 420   2              while (!(I2C0CON&SET_BIT3));                            //Check SI set or not
+ 421   2      
+ 422   2              if (I2C0STAT != 0x50)              
+ 423   2                  I2C_Error();
+ 424   2              
+ 425   2              if (I2C0DAT != u8DAT)             
+ 426   2                  I2C_Error();
+ 427   2              u8DAT = ~u8DAT; 
+ 428   2          } 
+ 429   1          
+ 430   1          /* Step15 */
+ 431   1          clr_I2C0CON_AA;
+ 432   1          clr_I2C0CON_SI;
+ 433   1          while (!(I2C0CON&SET_BIT3));                                //Check SI set or not
+ 434   1          if (I2C0STAT != 0x58)
+ 435   1              I2C_Error();
+ 436   1      
+ 437   1          /* Step16 */
+ 438   1          set_I2C0CON_STO;
+ 439   1          clr_I2C0CON_SI;
+ 440   1          while (I2C0CON&SET_BIT4);                                /* Check STOP signal */ 
+ 441   1      }
+ 442          //========================================================================================================
+ 443          
+ 444          uint16_t Get_TempValue(void)
+ 445          {
+ 446   1        return JBE.Temp_value;
+ 447   1      }
+ 448          
+ 449          uint16_t Get_HubValue(void)
+ 450          {
+C51 COMPILER V9.60.0.0   SHTC3                                                             11/11/2022 18:17:37 PAGE 9   
+
+ 451   1        return JBE.Hub_value;
+ 452   1      }
+ 453          
+ 454          void Is_IIC_OverTime(void)
+ 455          {
+ 456   1       static uint8_t countT=0;
+ 457   1       if(JBE.OverTimeStartCount==True) //��ʼ����
+ 458   1       {
+ 459   2       countT++;
+ 460   2       if(countT>10)                    //�ȴ�����10ms
+ 461   2       {
+ 462   3       JBE.TimeIsOver=True;              //�ѳ�ʱ
+ 463   3       countT=0; 
+ 464   3       }
+ 465   2         
+ 466   2       }
+ 467   1      
+ 468   1      }
+ 469          
+ 470          uint8_t Get_TempPositive(void)
+ 471          {
+ 472   1      return JBE.ThisPositiveTemp;
+ 473   1      }
+ 474          
+ 475          void Set_TempPositive(void)
+ 476          {
+ 477   1      JBE.ThisPositiveTemp=True;
+ 478   1      }
+ 479          
+ 480          
+ 481          
+ 482          
+ 483          
+ 484          
+ 485          
+ 486          
+ 487          
+ 488          
+ 489          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1358    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     21       1
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

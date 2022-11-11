@@ -1,0 +1,181 @@
+C51 COMPILER V9.60.0.0   WIFI                                                              11/11/2022 18:17:37 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE WIFI
+OBJECT MODULE PLACED IN .\Output\WIFI.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\..\..\UserCode\User\src\WIFI.c LARGE OPTIMIZE(7,SPEED) BROWSE INCDIR(
+                    -..\..\..\UserCode\Device\Include;..\..\..\UserCode\StdDriver\inc;..\..\..\UserCode\User\ins;..\..\..\UserCode\StdDriver\
+                    -src;..\..\..\UserCode\StdDriver\lib) DEBUG OBJECTEXTEND PRINT(.\LST\WIFI.lst) TABS(2) OBJECT(.\Output\WIFI.obj)
+
+line level    source
+
+   1          #include "ML51.h"
+   2          typedef struct DeviceData_t            //设备数据
+   3          {
+   4            uint8_t  Data_Length;                //数据长度
+   5            uint8_t  Command_Word;               //命令字
+   6            uint8_t  GateWay_ID;                 //网关ID
+   7            uint16_t Device_ID;                  //设备ID
+   8            uint32_t Device_SN;                  //设备SN码
+   9            uint8_t  Protocol_Versions;          //协议版本号
+  10            uint8_t  Device_Type;                //设备类型
+  11            uint8_t  Device_Num;                 //设备型号
+  12            uint8_t Software_Versions ;          //软件版本
+  13            uint8_t Hardware_Versions ;          //硬件版本号
+  14            uint16_t Customer_ID;                //客户ID
+  15            uint16_t Produc_Date;                //生产日期
+  16          }DeviceData_t;
+  17          
+  18          
+  19          
+  20          typedef struct Sensor_Data_t            //传感器数据
+  21          {
+  22            uint16_t Temp;                        //温度
+  23            uint16_t Humi;                        //湿度
+  24            uint16_t CO2_PecentMax;               //二氧化碳浓度最大值
+  25            uint16_t CO2_PecentAvr;               //二氧化碳浓度平均值
+  26            uint16_t CO2_PecentCurrent;           //二氧化碳浓度当前值
+  27          }Sensor_Data_t;
+  28          
+  29          
+  30          
+  31          
+  32          
+  33          typedef struct WIFICmdData_t            //WIFI命令字
+  34          {
+  35            uint8_t Buzzer_OnOff;                 //蜂鸣器开关
+  36            uint8_t Blu_OnOff;                    //背光开关  
+  37            
+  38          }WIFICmdData_t; 
+  39          
+  40          typedef struct WIFIData_t               //
+  41          {
+  42            //SendDataType_s SendDataType;        //发送的数据类型
+  43            DeviceData_t  DeviceData ;            //设备信息
+  44            WIFICmdData_t WIFICmdData;            //命令字
+  45            Sensor_Data_t Sensor_Data;            //传感器数据
+  46            uint8_t SendToWifiBuff[50];           //发送数组
+  47            uint8_t RecieveFromWifiBuff[50];      //接收数组
+  48            uint8_t Serial_Num;                   //序列号
+  49            uint16_t FH ;                         //帧头
+  50          }WIFIData_t;  
+  51          
+  52          WIFIData_t WIFIData;
+  53          #define JBE  WIFIData
+C51 COMPILER V9.60.0.0   WIFI                                                              11/11/2022 18:17:37 PAGE 2   
+
+  54          
+  55          void Init_Wifi(void)
+  56          {
+  57   1        GPIO_SetMode(WIFI_EN_PORT,WIFI_EN_PIN,GPIO_MODE_PUSHPULL); //设置为推挽输出
+  58   1        WIFI_Disable(); 
+  59   1      }
+  60          
+  61          /*******************************
+  62          函数名称：Send_NetworkEntry()
+  63          参数：    无
+  64          返回值：  无
+  65          函数功能：发送入网请求。
+  66          ********************************/
+  67          void Send_NetworkEntry(SendDataType_s SendType)                //发送入网请求命令
+  68          { 
+  69   1        uint8_t i=0;
+  70   1        switch (SendType)
+  71   1        {
+  72   2          case LogIn_Request:      
+  73   2             JBE.FH=0xAA55;                                          //帧头
+  74   2             JBE.DeviceData.Data_Length=0x12;                        //数据长度
+  75   2             JBE.DeviceData.Command_Word=0x01;                       //入网命令
+  76   2             JBE.DeviceData.GateWay_ID=0x00;                         //网关ID
+  77   2             JBE.DeviceData.Device_ID =0X0000;                       //设备ID
+  78   2             JBE.DeviceData.Device_SN =0X00000000;                   //设备SN码
+  79   2             JBE.DeviceData.Protocol_Versions=0x02;                  //协议版本号
+  80   2             JBE.DeviceData.Device_Type=0x06;                        //设备类型
+  81   2             JBE.DeviceData.Device_Num=0x01;                         //设备型号
+  82   2             JBE.DeviceData.Protocol_Versions=0x10;                  //软件版本号
+  83   2             JBE.DeviceData.Hardware_Versions=0x10;                  //硬件版本号
+  84   2             JBE.DeviceData.Customer_ID=0x0001;                      //客户ID
+  85   2             JBE.DeviceData.Produc_Date=0x22A1;                      //生产日期
+  86   2             JBE.SendToWifiBuff[0]=0xAA;
+  87   2             JBE.SendToWifiBuff[1]=0x55;  
+  88   2             JBE.SendToWifiBuff[2]=JBE.Serial_Num;
+  89   2             JBE.SendToWifiBuff[3]=JBE.DeviceData.Data_Length;
+  90   2             JBE.SendToWifiBuff[4]=JBE.DeviceData.Command_Word;
+  91   2             JBE.SendToWifiBuff[5]=JBE.DeviceData.GateWay_ID;
+  92   2             JBE.SendToWifiBuff[6]=JBE.DeviceData.Device_ID>>8;
+  93   2             JBE.SendToWifiBuff[7]=JBE.DeviceData.Device_ID;
+  94   2             JBE.SendToWifiBuff[8]=JBE.DeviceData.Device_SN>>24;
+  95   2             JBE.SendToWifiBuff[9]=JBE.DeviceData.Device_SN>>16;  
+  96   2             JBE.SendToWifiBuff[10]=JBE.DeviceData.Device_SN>>8;  
+  97   2             JBE.SendToWifiBuff[11]=JBE.DeviceData.Device_SN;   
+  98   2             JBE.SendToWifiBuff[12]=JBE.DeviceData.Protocol_Versions;
+  99   2             JBE.SendToWifiBuff[13]=JBE.DeviceData.Device_Type;
+ 100   2             JBE.SendToWifiBuff[14]=JBE.DeviceData.Device_Num;
+ 101   2             JBE.SendToWifiBuff[15]=JBE.DeviceData.Protocol_Versions;
+ 102   2             JBE.SendToWifiBuff[16]=JBE.DeviceData.Hardware_Versions;
+ 103   2             JBE.SendToWifiBuff[17]=JBE.DeviceData.Customer_ID>>8;
+ 104   2             JBE.SendToWifiBuff[18]=JBE.DeviceData.Customer_ID;
+ 105   2             JBE.SendToWifiBuff[19]=JBE.DeviceData.Produc_Date>>8;
+ 106   2             JBE.SendToWifiBuff[20]=JBE.DeviceData.Produc_Date;
+ 107   2             for(i=1;i<21;i++)
+ 108   2             {
+ 109   3             JBE.SendToWifiBuff[21]=JBE.SendToWifiBuff[21]+JBE.SendToWifiBuff[i];//计算校验和
+ 110   3             }
+ 111   2             Uart0senddata(&JBE.SendToWifiBuff[0],JBE.DeviceData.Data_Length+4);
+ 112   2             JBE.Serial_Num++;
+ 113   2             break;
+ 114   2          
+ 115   2          case LogOut_Request:
+C51 COMPILER V9.60.0.0   WIFI                                                              11/11/2022 18:17:37 PAGE 3   
+
+ 116   2          break;
+ 117   2          case Single_Instruction:
+ 118   2          break;
+ 119   2          case multiple_Instruction:
+ 120   2          break;
+ 121   2          default:
+ 122   2          break;    
+ 123   2        }
+ 124   1      
+ 125   1      }
+ 126          
+ 127          
+ 128          /**
+ 129           * @brief       UART0 interrupt subroutine
+ 130           * @param       UART0~3, baudrate value
+ 131           * @return      none
+ 132           * @details     none
+ 133           * @note        Since printf function TI must be 1. Check with printf flag, for printf enable, not clear T
+             -I . 
+ 134           */
+ 135          void UART0_ISR(void) interrupt 4
+ 136          {
+ 137   1          _push_(SFRS);
+ 138   1          if (RI)
+ 139   1          {
+ 140   2              uart0_receive_flag = 1;
+ 141   2              uart0_receive_data = SBUF;
+ 142   2              clr_SCON_RI;                                         //Clear RI (Receive Interrupt).
+ 143   2              
+ 144   2          }
+ 145   1          if (TI)
+ 146   1          {
+ 147   2      //   if (!UART0PRINTFG)
+ 148   2      //   TI = 0;
+ 149   2          }
+ 150   1          _pop_(SFRS);
+ 151   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    399    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    133    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

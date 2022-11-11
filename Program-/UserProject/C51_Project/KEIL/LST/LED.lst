@@ -1,0 +1,406 @@
+C51 COMPILER V9.60.0.0   LED                                                               11/11/2022 18:17:37 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE LED
+OBJECT MODULE PLACED IN .\Output\LED.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\..\..\UserCode\User\src\LED.c LARGE OPTIMIZE(7,SPEED) BROWSE INCDIR(.
+                    -.\..\..\UserCode\Device\Include;..\..\..\UserCode\StdDriver\inc;..\..\..\UserCode\User\ins;..\..\..\UserCode\StdDriver\s
+                    -rc;..\..\..\UserCode\StdDriver\lib) DEBUG OBJECTEXTEND PRINT(.\LST\LED.lst) TABS(2) OBJECT(.\Output\LED.obj)
+
+line level    source
+
+   1          #include "ML51.h"
+   2          /**********************************************************************
+   3            PWM frequency = Fpwm/((PWMPH,PWMPL) + 1) <Fpwm = Fsys/PWM_CLOCK_DIV>
+   4                  = (24MHz/8)/(0x456 + 1)
+   5                  = 2.7KHz
+   6          ***********************************************************************/
+   7          unsigned char Is_InToSleep=0;
+   8          unsigned int BLU_10_SecondCount = 0;
+   9          unsigned char Low_Light=0;
+  10          void LED_Init(void)
+  11          {
+  12   1        /*ï¿½ï¿½ï¿½ï¿½ioï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?*/
+  13   1        // GPIO_SetMode(BLU_PORT_R ,BLU_R_PIN,GPIO_MODE_PUSHPULL);
+  14   1        // GPIO_SetMode(BLU_PORT_GB ,BLU_G_PIN|BLU_B_PIN,GPIO_MODE_PUSHPULL);
+  15   1        GPIO_SetMode(LAMP_PORT, LAMP_R_PIN | LAMP_G_PIN | LAMP_B_PIN, GPIO_MODE_PUSHPULL);
+  16   1        // BLU_ON();
+  17   1        // LAMP_OFF();
+  18   1        PWM123_ClockSource(PWM2, 8);
+  19   1        MFP_P43_PWM2_CH0; // multi function pin define P0.3 as PWM0 channel 2 output
+  20   1        P43_PUSHPULL_MODE;
+  21   1        PWM123_ConfigOutputChannel(PWM2, 0, 0x456, 0); // 2.7Kï¿½ï¿½ï¿½PWMÕ¼ï¿½Õ±ï¿½50%
+  22   1        set_PWM2CON0_LOAD;                 //ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Õ±ï¿½ï¿½ï¿½ï¿½ï¿½  //ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+             -ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+  23   1        PWM0_ClockSource(PWM_FSYS, 8);
+  24   1      
+  25   1        MFP_P05_PWM0_CH0; // G                                                // multi function pin define P0.5 a
+             -s PWM0 channel 0 output
+  26   1        P05_PUSHPULL_MODE;
+  27   1        PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 100); // setting PWM channel 0 as 10% duty h
+             -igh of 0x6FF PWM period = 0x00B3
+  28   1      
+  29   1        MFP_P04_PWM0_CH1; // B                                               // multi function pin define P0.5 as
+             - PWM0 channel 0 output
+  30   1        P04_PUSHPULL_MODE;
+  31   1        PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 100); // setting PWM channel 0 as 10% duty h
+             -igh of 0x6FF PWM period = 0x00B3
+  32   1      
+  33   1        MFP_P36_PWM0_CH5; // R                                                // multi function pin define P0.5 a
+             -s PWM0 channel 0 output
+  34   1        P36_PUSHPULL_MODE;
+  35   1        PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 100);
+  36   1      
+  37   1        // set_PWM0CON0_PWMRUN;//pwm0ï¿½ï¿½ï¿½Ê¹ï¿½ï¿?
+  38   1      
+  39   1        // set_PWM2CON0_PWMRUN;//pwm2ï¿½ï¿½ï¿½Ê¹ï¿½ï¿?
+  40   1        clr_PWM2CON0_PWM2RUN;
+  41   1        PWM0_RUN();
+  42   1      }
+  43          
+  44          void Buz_Off(void)
+  45          {
+  46   1        _push_(SFRS);
+  47   1        clr_PWM2CON0_PWM2RUN;
+C51 COMPILER V9.60.0.0   LED                                                               11/11/2022 18:17:37 PAGE 2   
+
+  48   1        PWM123_ConfigOutputChannel(PWM2, 0, 0x456, 0); // 2.Õ¼¿Õ±È0%//clr_PWM2CON0_PWM2RUN;
+  49   1        set_PWM2CON0_PWMRUN;
+  50   1        _pop_(SFRS);
+  51   1        ////set_PWM2CON0_LOAD;
+  52   1      }
+  53          
+  54          void Buz_On(void)
+  55          {
+  56   1        static unsigned int BuzTime = 0, i;
+  57   1        BuzTime++;
+  58   1        if (BuzTime < 50)
+  59   1        {
+  60   2          i++;
+  61   2          _push_(SFRS);
+  62   2          PWM123_ConfigOutputChannel(PWM2, 0, 1200 - i, 50); // 2.7KÕ¼¿Õ±È50% set_PWM2CON0_PWMRUN;
+  63   2          set_PWM2CON0_LOAD;
+  64   2          set_PWM2CON0_PWMRUN;
+  65   2          _pop_(SFRS);
+  66   2        }
+  67   1        else if (BuzTime < 100)
+  68   1        {
+  69   2          i = 0;
+  70   2          Buz_Off();
+  71   2        }
+  72   1        else
+  73   1        {
+  74   2          i = 0;
+  75   2          BuzTime = 0;
+  76   2        }
+  77   1      }
+  78          
+  79          void LED_Low_Light(unsigned char Level_light)
+  80          {
+  81   1        static unsigned char LED_Times = 0;
+  82   1        if (Low_Light == True)
+  83   1        {
+  84   2      
+  85   2          if (Get_Co2Value() <= 1000)
+  86   2          {
+  87   3            LED_Times++;
+  88   3            if (LED_Times == 1)
+  89   3            {
+  90   4              LAMP_GREEN_ON();
+  91   4            }
+  92   3            else if (LED_Times <= Level_light)
+  93   3            {
+  94   4      
+  95   4              LAMP_OFF();
+  96   4            }
+  97   3            else
+  98   3            {
+  99   4              LED_Times = 0;
+ 100   4            }
+ 101   3          }
+ 102   2          else if (Get_Co2Value() <= 1400)
+ 103   2          {
+ 104   3            LED_Times++;
+ 105   3            if (LED_Times == 1)
+ 106   3            {
+ 107   4      
+ 108   4              LAMP_YELLOW_ON();
+ 109   4            }
+C51 COMPILER V9.60.0.0   LED                                                               11/11/2022 18:17:37 PAGE 3   
+
+ 110   3            else if (LED_Times <= Level_light)
+ 111   3            {
+ 112   4      
+ 113   4              LAMP_OFF();
+ 114   4            }
+ 115   3            else
+ 116   3            {
+ 117   4              LED_Times = 0;
+ 118   4            }
+ 119   3          }
+ 120   2          else if (Get_Co2Value() <= 1800)
+ 121   2          {
+ 122   3            LED_Times++;
+ 123   3            if (LED_Times == 1)
+ 124   3            {
+ 125   4      
+ 126   4              
+ 127   4                LAMP_RED_ON();
+ 128   4            }
+ 129   3            else if (LED_Times <= Level_light)
+ 130   3            {
+ 131   4      
+ 132   4              LAMP_OFF();
+ 133   4            }
+ 134   3            else
+ 135   3            {
+ 136   4              LED_Times = 0;
+ 137   4            }
+ 138   3          }
+ 139   2          else
+ 140   2          {
+ 141   3            LED_Times++;
+ 142   3            if (LED_Times == 1)
+ 143   3            {
+ 144   4              
+ 145   4                LAMP_RED_ON();
+ 146   4            }
+ 147   3            else if (LED_Times <= Level_light)
+ 148   3            {
+ 149   4      
+ 150   4              LAMP_OFF();
+ 151   4            }
+ 152   3            else
+ 153   3            {
+ 154   4              LED_Times = 0;
+ 155   4            }
+ 156   3          }
+ 157   2        }
+ 158   1      }
+ 159          
+ 160          void LED_Buz(void)
+ 161          {
+ 162   1        switch (Sys_MODE)
+ 163   1        {
+ 164   2        case Sys_MODE_ACPower:
+ 165   2          Low_Light = False;
+ 166   2          if (Get_Light_Sta() == Light_on)
+ 167   2          {
+ 168   3            if (Get_Co2Value() <= 1000)
+ 169   3            {
+ 170   4              LAMP_GREEN_ON();
+ 171   4            }
+C51 COMPILER V9.60.0.0   LED                                                               11/11/2022 18:17:37 PAGE 4   
+
+ 172   3            else if (Get_Co2Value() <= 1400)
+ 173   3            {
+ 174   4              LAMP_YELLOW_ON();
+ 175   4            }
+ 176   3            else if (Get_Co2Value() <= 1800)
+ 177   3            {
+ 178   4              LAMP_RED_ON();
+ 179   4            }
+ 180   3            else
+ 181   3            {
+ 182   4              LAMP_RED_ON();
+ 183   4            }
+ 184   3          }
+ 185   2          else if (Get_Light_Sta() == Light_off)
+ 186   2          {
+ 187   3            LAMP_OFF();
+ 188   3            // clr_PWM2CON0_PWM2RUN;
+ 189   3          }
+ 190   2      
+ 191   2          if (Get_Co2Value() > 1800)
+ 192   2          {
+ 193   3            if (Get_Bell_Sta() == Bell_off)
+ 194   3            {
+ 195   4              Buz_Off();
+ 196   4            }
+ 197   3            else if (Get_Bell_Sta() == Bell_on)
+ 198   3            {
+ 199   4              Buz_On();
+ 200   4            }
+ 201   3          }
+ 202   2          else
+ 203   2          {
+ 204   3            Buz_Off();
+ 205   3          }
+ 206   2          break;
+ 207   2        case Sys_MODE_BATPower:
+ 208   2      
+ 209   2          if (Get_Light_Sta() == Light_on)
+ 210   2          {  
+ 211   3            if (BLU_10_SecondCount>= BLU_10_Second)
+ 212   3            {
+ 213   4              Low_Light = True;
+ 214   4            }
+ 215   3            else 
+ 216   3            {
+ 217   4                   Low_Light = False;
+ 218   4                   if (Get_Co2Value() <= 1000)
+ 219   4             {
+ 220   5              LAMP_GREEN_ON();
+ 221   5             }
+ 222   4             else if (Get_Co2Value() <= 1400)
+ 223   4             {
+ 224   5              LAMP_YELLOW_ON();
+ 225   5             }
+ 226   4             else if (Get_Co2Value() <= 1800)
+ 227   4             {
+ 228   5              LAMP_RED_ON();
+ 229   5             }
+ 230   4             else
+ 231   4             {
+ 232   5              LAMP_RED_ON();
+ 233   5             }
+C51 COMPILER V9.60.0.0   LED                                                               11/11/2022 18:17:37 PAGE 5   
+
+ 234   4            }
+ 235   3          }
+ 236   2          else if (Get_Light_Sta() == Light_off)
+ 237   2          {
+ 238   3            Low_Light = False;
+ 239   3            LAMP_OFF();
+ 240   3            // clr_PWM2CON0_PWM2RUN;
+ 241   3          }
+ 242   2      
+ 243   2          if (Get_Co2Value() > 1800)
+ 244   2          {
+ 245   3            if (Get_Bell_Sta() == Bell_off)
+ 246   3            {
+ 247   4              Buz_Off();
+ 248   4            }
+ 249   3            else if (Get_Bell_Sta() == Bell_on)
+ 250   3            {
+ 251   4              Buz_On();
+ 252   4            }
+ 253   3          }
+ 254   2          else
+ 255   2          {
+ 256   3            Buz_Off();
+ 257   3          }
+ 258   2      
+ 259   2          break;
+ 260   2        case Sys_MODE_BATPowerLow:
+ 261   2          Low_Light = False;
+ 262   2          LAMP_OFF();
+ 263   2          Buz_Off();
+ 264   2          break;
+ 265   2        default:
+ 266   2          Low_Light = False;
+ 267   2          LAMP_OFF();
+ 268   2          Buz_Off();
+ 269   2          break;
+ 270   2        }
+ 271   1      }
+ 272          void RGB_Color(Color_s RGBColor)
+ 273          {
+ 274   1        _push_(SFRS);
+ 275   1        PWM0_STOP();
+ 276   1        switch (RGBColor)
+ 277   1        {
+ 278   2        case White:
+ 279   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 100); // G
+ 280   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 100); // B
+ 281   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 100); // R
+ 282   2          break;
+ 283   2        case Red:
+ 284   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 0);   // G
+ 285   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 0);   // B
+ 286   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 100); // R
+ 287   2          break;
+ 288   2        case Green:
+ 289   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 100); // G
+ 290   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 0);   // B
+ 291   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 0);   // R
+ 292   2          break;
+ 293   2        case Blue:
+ 294   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 0);   // G
+ 295   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 100); // B
+C51 COMPILER V9.60.0.0   LED                                                               11/11/2022 18:17:37 PAGE 6   
+
+ 296   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 0);   // R
+ 297   2          break;
+ 298   2        case Yellow:
+ 299   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 100); // G
+ 300   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 0);   // B
+ 301   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 100); // R
+ 302   2          break;
+ 303   2        case Purple:
+ 304   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 0);   // G
+ 305   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 100); // B
+ 306   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 100); // R
+ 307   2          break;
+ 308   2        case Orange:
+ 309   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 70);  // G
+ 310   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 20);  // B
+ 311   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 100); // R
+ 312   2          break;
+ 313   2        case Cyan:
+ 314   2          PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 100); // G
+ 315   2          PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 100); // B
+ 316   2          PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 0);   // R
+ 317   2          break;
+ 318   2        default:
+ 319   2          break;
+ 320   2        }
+ 321   1        PWM0_RUN();
+ 322   1        _pop_(SFRS);
+ 323   1      }
+ 324          
+ 325          void RGB_Color_Off(void)
+ 326          {
+ 327   1        _push_(SFRS);
+ 328   1        PWM0_STOP();
+ 329   1        PWM0_ConfigOutputChannel(0, Independent, EdgeAligned, 0x456, 0); // G
+ 330   1        PWM0_ConfigOutputChannel(1, Independent, EdgeAligned, 0x456, 0); // B
+ 331   1        PWM0_ConfigOutputChannel(5, Independent, EdgeAligned, 0x456, 0); // R
+ 332   1        PWM0_RUN();
+ 333   1        _pop_(SFRS);
+ 334   1      }
+ 335          
+ 336          void BLU_Color(void)
+ 337          {
+ 338   1        switch (Sys_MODE)
+ 339   1        {
+ 340   2        case Sys_MODE_ACPower:
+ 341   2          RGB_Color(Get_Color_Sta());
+ 342   2          break;
+ 343   2        case Sys_MODE_BATPower:
+ 344   2          BLU_10_SecondCount++;
+ 345   2          if (BLU_10_SecondCount > BLU_10_Second)
+ 346   2          {
+ 347   3            BLU_10_SecondCount=BLU_10_Second;
+ 348   3            Is_InToSleep=True;
+ 349   3            RGB_Color_Off();
+ 350   3          }
+ 351   2          else
+ 352   2          {
+ 353   3            RGB_Color(Get_Color_Sta());
+ 354   3          }
+ 355   2          break;
+ 356   2        case Sys_MODE_BATPowerLow:
+ 357   2          RGB_Color_Off();
+C51 COMPILER V9.60.0.0   LED                                                               11/11/2022 18:17:37 PAGE 7   
+
+ 358   2          break;
+ 359   2        default:
+ 360   2          RGB_Color_Off();
+ 361   2          break;
+ 362   2        }
+ 363   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1824    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      9       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

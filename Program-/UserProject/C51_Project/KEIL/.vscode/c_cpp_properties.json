@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "name": "UserCode",
+            "includePath": [
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserCode\\Device\\Include",
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserCode\\StdDriver\\inc",
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserCode\\User\\ins",
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserCode\\StdDriver\\src",
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserCode\\StdDriver\\lib",
+                "D:\\Keil_v5\\C51\\INC",
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserProject\\C51_Project",
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserCode\\Startup\\KEIL",
+                "c:\\Users\\Administrator\\Desktop\\Desktop\\Program-a\\Program-\\UserCode\\User\\src"
+            ],
+            "defines": [
+                "__C51__",
+                "__VSCODE_C51__",
+                "reentrant=",
+                "compact=",
+                "small=",
+                "large=",
+                "data=",
+                "idata=",
+                "pdata=",
+                "bdata=",
+                "xdata=",
+                "code=",
+                "bit=char",
+                "sbit=char",
+                "sfr=char",
+                "sfr16=int",
+                "sfr32=int",
+                "interrupt=",
+                "using=",
+                "_at_=",
+                "_priority_=",
+                "_task_="
+            ],
+            "intelliSenseMode": "${default}"
+        }
+    ],
+    "version": 4
+}

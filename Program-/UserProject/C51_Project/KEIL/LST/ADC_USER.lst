@@ -1,0 +1,654 @@
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE ADC_USER
+OBJECT MODULE PLACED IN .\Output\ADC_USER.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\..\..\UserCode\User\src\ADC_USER.c LARGE OPTIMIZE(7,SPEED) BROWSE INC
+                    -DIR(..\..\..\UserCode\Device\Include;..\..\..\UserCode\StdDriver\inc;..\..\..\UserCode\User\ins;..\..\..\UserCode\StdDri
+                    -ver\src;..\..\..\UserCode\StdDriver\lib) DEBUG OBJECTEXTEND PRINT(.\LST\ADC_USER.lst) TABS(2) OBJECT(.\Output\ADC_USER.o
+                    -bj)
+
+line level    source
+
+   1          #include "ML51.h"
+   2          /*NTCï¿½ï¿½Öµï¿½ï¿½*/
+   3          Sys_MODE_e Sys_MODE;
+   4          const unsigned int NTC_ADCValue[81] = {
+   5            3950, 3890, 3829, 3766, 3703, 3638, 3572, 3506, 3439, 3371,
+   6            3302, 3233, 3164, 3094, 3024, 2954, 2884, 2814, 2745, 2676,
+   7            2607, 2539, 2471, 2403, 2337, 2272, 2207, 2144, 2081, 2019,
+   8            1959, 1899, 1841, 1784, 1728, 1674, 1620, 1569, 1518, 1469,
+   9            1421, 1374, 1328, 1284, 1241, 1200, 1159, 1120, 1082, 1046,
+  10            1010, 976, 941, 910, 879, 848, 820, 791, 764, 737,
+  11            712, 687, 664, 641, 619, 599, 578, 558, 539, 521,
+  12            503, 486, 470, 454, 438, 424, 410, 396, 383, 370,
+  13            357};
+  14          
+  15          typedef struct NTC_Data_s
+  16          {
+  17            uint16_t Min_NTC_Val; // NTC????
+  18            uint16_t Max_NTC_Val; // NTC??ï¿½ï¿½?
+  19            uint16_t NTC_Val_Sum; // NTC16?ï¿½ï¿½??????
+  20            uint16_t NTC_Val;   // NTC???????
+  21            uint16_t NTC_Val_Last;  // NTC????ï¿½ï¿½?????
+  22            uint16_t Adval_Ntc[18]; // NTC??????ï¿½ï¿½????
+  23            uint8_t Adval_Ntc_Idx;  // NTC?????ï¿½ï¿½?
+  24            uint16_t NTC_Temp;    // NTC????
+  25            uint16_t NTC_Init;    // NTC????
+  26            uint8_t NTC_Temp_i;
+  27            uint8_t IsFistGetTemp;
+  28          } NTC_Data_s;
+  29          
+  30          typedef struct Bat_Data_s
+  31          {
+  32            uint16_t Min_Bat_Val;   // Bat????
+  33            uint16_t Max_Bat_Val;   // Bat??ï¿½ï¿½?
+  34            uint32_t Bat_Val_Sum;   // Bat16?ï¿½ï¿½??????
+  35            uint16_t Bat_Val;     // Bat???????
+  36            uint16_t Bat_Val_Last;    // Bat????ï¿½ï¿½?????
+  37            uint16_t Adval_Bat[18];   // Bat??????ï¿½ï¿½????
+  38            uint8_t Adval_Bat_Idx;    // Bat?????ï¿½ï¿½?
+  39            uint32_t Bat_Voltage;   // Bat????
+  40            uint8_t IsNeedCheckBatvolt; //?????????????
+  41            BatMod_s BatMod;      //?????
+  42            uint8_t BatPowerPecent;   //????????
+  43                                       // uint16_t NTC_Init;             Bat????
+  44                                       // uint8_t NTC_Temp_i;
+  45                                       // uint8_t IsFistGetTemp;
+  46          } Bat_Data_s;
+  47          
+  48          typedef struct ADC_Data_s
+  49          {
+  50            NTC_Data_s NTC_Data;
+  51            Bat_Data_s Bat_Data;
+  52            uint8_t Is_Bat_ChargFull;
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 2   
+
+  53          } ADC_Data_s;
+  54          
+  55          ADC_Data_s ADC_Data;
+  56          #define JBE ADC_Data
+  57          void Voltage_Display(uint8_t percent);
+  58          
+  59          void ADC_Init(void)
+  60          {
+  61   1        ENABLE_ADC_CH0;
+  62   1        ADC_Open(ADC_SINGLE, ADC_CHANNEL_4);    //????????????4?????
+  63   1        ADC_SamplingTime(3, 7);           //???ï¿½ï¿½??????
+  64   1        ADC_Vref_Set(Enable, Enable, Level_2_560V); //?????????????????
+  65   1        clr_ADCCON0_ADCF;             //????????ï¿½ï¿½????
+  66   1        GPIO_SetMode(BatVoltCheck_PORT, BatVoltCheck_PIN, GPIO_MODE_PUSHPULL);
+  67   1        P24_QUASI_MODE; // P2.4????????????????????ï¿½ï¿½??
+  68   1        // GPIO_SetMode(Port5 ,BIT1,GPIO_MODE_PUSHPULL);
+  69   1        // BAT_TEST_ON();
+  70   1        GPIO_SetMode(Port4, BIT2, GPIO_MODE_PUSHPULL);
+  71   1        // ENABLE_P63_PULLUP;
+  72   1        BAT_POWER_ON();
+  73   1        BatVoltCheck_ON;
+  74   1        JBE.NTC_Data.IsFistGetTemp = True;
+  75   1        JBE.Bat_Data.IsNeedCheckBatvolt = False;
+  76   1      }
+  77          
+  78          uint32_t Get_NtcValu(void)
+  79          {
+  80   1        uint32_t ADCdataAIN;
+  81   1        uint32_t Ntc_valu;
+  82   1        clr_ADCCON0_ADCF;
+  83   1        set_ADCCON0_ADCS; // ADC start trig signal
+  84   1        while (!(ADCCON0 & SET_BIT7))
+  85   1          ;
+  86   1        ADCdataAIN = (ADCRH << 4) | ADCRL;
+  87   1        JBE.NTC_Data.Adval_Ntc[JBE.NTC_Data.Adval_Ntc_Idx] = ADCdataAIN;
+  88   1        JBE.NTC_Data.Adval_Ntc_Idx++;
+  89   1        Ntc_valu = ADCdataAIN;
+  90   1        clr_ADCCON0_ADCF;
+  91   1        clr_ADCCON0_ADCS;
+  92   1        return Ntc_valu;
+  93   1      }
+  94          
+  95          void ADC_RUN(uint8_t Channel)
+  96          {
+  97   1        uint32_t ADCdataAIN;
+  98   1        /* if(Channel==Channel_Temp)
+  99   1           {
+ 100   1           ENABLE_ADC_CH4;
+ 101   1           clr_ADCCON0_ADCF;
+ 102   1             set_ADCCON0_ADCS;                  // ADC start trig signal
+ 103   1             while(!(ADCCON0&SET_BIT7));
+ 104   1             ADCdataAIN = (ADCRH<<4)|ADCRL;
+ 105   1           JBE.NTC_Data.Adval_Ntc[JBE.NTC_Data.Adval_Ntc_Idx]= ADCdataAIN;
+ 106   1           JBE.NTC_Data.Adval_Ntc_Idx++;
+ 107   1             clr_ADCCON0_ADCF;
+ 108   1             clr_ADCCON0_ADCS;
+ 109   1           }*/
+ 110   1        if (Channel == Channel_BatVolt)
+ 111   1        {
+ 112   2          ENABLE_ADC_CH0;
+ 113   2          clr_ADCCON0_ADCF;
+ 114   2          set_ADCCON0_ADCS; // ADC start trig signal
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 3   
+
+ 115   2          while (!(ADCCON0 & SET_BIT7))
+ 116   2            ;
+ 117   2          ADCdataAIN = (ADCRH << 4) | ADCRL;
+ 118   2          JBE.Bat_Data.Adval_Bat[JBE.Bat_Data.Adval_Bat_Idx] = ADCdataAIN;
+ 119   2          JBE.Bat_Data.Adval_Bat_Idx++;
+ 120   2          clr_ADCCON0_ADCF;
+ 121   2          clr_ADCCON0_ADCS;
+ 122   2        }
+ 123   1      }
+ 124          
+ 125          void Get_Temp_Bat(uint8_t Channel)
+ 126          {
+ 127   1        uint8_t i;
+ 128   1        switch (Channel)
+ 129   1        {
+ 130   2        case Channel_Temp:
+ 131   2        {
+ 132   3          ADC_RUN(Channel_Temp); //Ä¿Ç°Ã»ï¿½ï¿½ntc
+ 133   3          if (JBE.NTC_Data.Adval_Ntc_Idx >= 18)
+ 134   3          {
+ 135   4            JBE.NTC_Data.Adval_Ntc_Idx = 0;
+ 136   4            JBE.NTC_Data.Min_NTC_Val = JBE.NTC_Data.Adval_Ntc[0]; //???????ï¿½ï¿½??????
+ 137   4            JBE.NTC_Data.Max_NTC_Val = JBE.NTC_Data.Adval_Ntc[0];
+ 138   4            JBE.NTC_Data.NTC_Val_Sum = 0; //????????????
+ 139   4            for (i = 1; i < 18; i++)    //????????ï¿½ï¿½?
+ 140   4            {
+ 141   5              if (JBE.NTC_Data.Max_NTC_Val < JBE.NTC_Data.Adval_Ntc[i])
+ 142   5                JBE.NTC_Data.Max_NTC_Val = JBE.NTC_Data.Adval_Ntc[i];
+ 143   5              if (JBE.NTC_Data.Min_NTC_Val > JBE.NTC_Data.Adval_Ntc[i])
+ 144   5                JBE.NTC_Data.Min_NTC_Val = JBE.NTC_Data.Adval_Ntc[i];
+ 145   5            }
+ 146   4            for (i = 0; i < 18; i++) //???
+ 147   4            {
+ 148   5              JBE.NTC_Data.NTC_Val_Sum += JBE.NTC_Data.Adval_Ntc[i];
+ 149   5            }
+ 150   4            JBE.NTC_Data.NTC_Val_Sum = JBE.NTC_Data.NTC_Val_Sum - JBE.NTC_Data.Min_NTC_Val - JBE.NTC_Data.Max_NTC_V
+             -al; //????????ï¿½ï¿½?
+ 151   4            JBE.NTC_Data.NTC_Val_Sum >>= 4;                                        //???????????????ï¿½ï¿½?????????4
+ 152   4            JBE.NTC_Data.NTC_Val = JBE.NTC_Data.NTC_Val_Sum;
+ 153   4            JBE.NTC_Data.NTC_Val = 0.9 * JBE.NTC_Data.NTC_Val_Sum + 0.1 * JBE.NTC_Data.NTC_Val_Last;
+ 154   4            JBE.NTC_Data.NTC_Val_Last = JBE.NTC_Data.NTC_Val;
+ 155   4            for (i = 0; i < 80; i++) //?????????
+ 156   4            {
+ 157   5              if ((JBE.NTC_Data.NTC_Val <= NTC_ADCValue[i]) && (JBE.NTC_Data.NTC_Val > NTC_ADCValue[i + 1])) //?????
+             -??ï¿½ï¿½
+ 158   5              {
+ 159   6                if (i < 20) //??????
+ 160   6                {
+ 161   7                  JBE.NTC_Data.NTC_Temp = (19 - i) * 10 + 10 * (NTC_ADCValue[i] - JBE.NTC_Data.NTC_Val) / (NTC_ADCValu
+             -e[i] - NTC_ADCValue[i + 1]);
+ 162   7                }
+ 163   6                else //???????
+ 164   6                {
+ 165   7                  JBE.NTC_Data.NTC_Temp = (i - 20) * 10 + (10 * (NTC_ADCValue[i] - JBE.NTC_Data.NTC_Val)) / (NTC_ADCVa
+             -lue[i] - NTC_ADCValue[i + 1]);
+ 166   7                  JBE.NTC_Data.NTC_Temp_i = i;
+ 167   7                  JBE.NTC_Data.NTC_Temp_i = i;
+ 168   7                  return;
+ 169   7                }
+ 170   6              }
+ 171   5            }
+ 172   4          }
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 4   
+
+ 173   3          break;
+ 174   3        }
+ 175   2        case Channel_BatVolt:
+ 176   2        {
+ 177   3          uint8_t i;
+ 178   3          ADC_RUN(Channel_BatVolt);                                 //Í¨ï¿½ï¿½1 ï¿½ï¿½Øµï¿½Ñ¹ï¿½ï¿½ï¿½
+ 179   3          if (JBE.Bat_Data.Adval_Bat_Idx >= 18)
+ 180   3          {
+ 181   4            JBE.Bat_Data.Adval_Bat_Idx = 0;
+ 182   4            JBE.Bat_Data.Min_Bat_Val = JBE.Bat_Data.Adval_Bat[0]; //ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Ð¡Öµï¿½ï¿½ï¿½ï¿?
+ 183   4            JBE.Bat_Data.Max_Bat_Val = JBE.Bat_Data.Adval_Bat[0];
+ 184   4            JBE.Bat_Data.Bat_Val_Sum = 0;                         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ 185   4            for (i = 1; i < 18; i++)                            //ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡Ö?
+ 186   4            {
+ 187   5              if (JBE.Bat_Data.Max_Bat_Val < JBE.Bat_Data.Adval_Bat[i])
+ 188   5                JBE.Bat_Data.Max_Bat_Val = JBE.Bat_Data.Adval_Bat[i];
+ 189   5              if (JBE.Bat_Data.Min_Bat_Val > JBE.Bat_Data.Adval_Bat[i])
+ 190   5                JBE.Bat_Data.Min_Bat_Val = JBE.Bat_Data.Adval_Bat[i];
+ 191   5            }
+ 192   4            for (i = 0; i < 18; i++)                              //ï¿½ï¿½ï¿?
+ 193   4            {
+ 194   5              JBE.Bat_Data.Bat_Val_Sum += JBE.Bat_Data.Adval_Bat[i];
+ 195   5            }
+ 196   4            JBE.Bat_Data.Bat_Val_Sum = JBE.Bat_Data.Bat_Val_Sum - JBE.Bat_Data.Min_Bat_Val - JBE.Bat_Data.Max_Bat_V
+             -al; //ï¿½ï¿½È¥ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡Ö?
+ 197   4            JBE.Bat_Data.Bat_Val_Sum >>= 4;                                        //ï¿½ï¿½ï¿½ï¿½4Î»ï¿½ï¿½/16
+ 198   4            // JBE.Bat_Data.Bat_Val=JBE.Bat_Data.Bat_Val_Sum;
+ 199   4            JBE.Bat_Data.Bat_Val_Sum = 0.9 * JBE.Bat_Data.Bat_Val_Sum + 0.1 * JBE.Bat_Data.Bat_Val_Last; // 1ï¿½ï¿½
+             -ï¿½Ë²ï¿½
+ 200   4            JBE.Bat_Data.Bat_Val_Last = JBE.Bat_Data.Bat_Val_Sum;
+ 201   4            JBE.Bat_Data.Bat_Val = JBE.Bat_Data.Bat_Val_Sum * 256 * 20 / 4095; //Êµï¿½Êµï¿½Ñ¹Öµ
+ 202   4          }
+ 203   3      
+ 204   3              if (IsChargOn == True) //³äµçÖÐ
+ 205   3            {  
+ 206   4          Sys_MODE=Sys_MODE_ACPower;
+ 207   4          BLU_10_SecondCount=0;
+ 208   4          Is_InToSleep=False;
+ 209   4          }
+ 210   3              else if (IsChargOn == False) //·Åµç
+ 211   3          {
+ 212   4            if (Sys_MODE!=Sys_MODE_BATPowerLow)
+ 213   4            {
+ 214   5            Sys_MODE=Sys_MODE_BATPower;//µç³Ø¹©µç×´Ì¬ 
+ 215   5            }
+ 216   4            if ((JBE.Bat_Data.Bat_Val < 3100)) //ÔÚµç³Ø¹©µç×´Ì¬ÏÂÈç¹ûµçÑ¹µÍÓÚ3.1V,½øÈë¹©µçµçÑ¹µÍµÄ×´Ì¬
+ 217   4            {
+ 218   5            Sys_MODE=Sys_MODE_BATPowerLow;//½øÈëµÍµçÑ¹µÄ×´Ì¬
+ 219   5            }
+ 220   4            else if((JBE.Bat_Data.Bat_Val >= 3500)&&Sys_MODE==Sys_MODE_BATPowerLow)//Èç¹û½øÈëÁËµÍµçÑ¹µÄ×´Ì¬ÒªµÈµçÑ¹
+             -»Ö¸´µ½3.5VÒÔºó²ÅÄÜ»Øµ½µç³Ø¹©µçÄ£Ê½
+ 221   4            {
+ 222   5            Sys_MODE=Sys_MODE_BATPower;
+ 223   5            }
+ 224   4          }
+ 225   3          break;
+ 226   3        }
+ 227   2        }
+ 228   1      }
+ 229          
+ 230          void Bat_PowerDisplay(void)
+ 231          {
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 5   
+
+ 232   1      
+ 233   1        if (IsChargOn == True) //³äµçÖÐ
+ 234   1        {  
+ 235   2          //Sys_MODE=Sys_MODE_ACPower;
+ 236   2          //BLU_10_SecondCount=0;
+ 237   2          LCD_SetOnePixel(1, 22, Enable); //³äµç±êÖ¾ÏÔÊ¾//
+ 238   2          // LCD_SetOnePixel(3, 23, Enable);   
+ 239   2          if (JBE.Bat_Data.Bat_Val > 4200) //´óÓÚ4.2V ÏÔÊ¾³äÂú
+ 240   2          {
+ 241   3            JBE.Is_Bat_ChargFull = True;
+ 242   3            JBE.Bat_Data.BatPowerPecent = 100;
+ 243   3          }
+ 244   2          /*Ã»ÓÐ³äÂú¹ýÐ¡ÓÚ4.2vÏÔÊ¾³äµç,ÒÑ¾­³äÂú¹ýÒ»´ÎÁËÐ¡ÓÚ3.9vÔÙ´ÎÏÔÊ¾³äµç*/
+ 245   2          else if ((JBE.Bat_Data.Bat_Val < 4200 && JBE.Is_Bat_ChargFull == False) || (JBE.Bat_Data.Bat_Val < 4100 
+             -&& JBE.Is_Bat_ChargFull == True))
+ 246   2          {
+ 247   3            if((JBE.Bat_Data.Bat_Val < 4100 && JBE.Is_Bat_ChargFull == True))JBE.Is_Bat_ChargFull = FALSE;//³äÂú±êÖ
+             -¾Î»ÇåÁã
+ 248   3            if (JBE.Bat_Data.Bat_Val < 3691)
+ 249   3            {
+ 250   4              JBE.Bat_Data.BatPowerPecent = 0;
+ 251   4            }
+ 252   3            else if (JBE.Bat_Data.Bat_Val < 3757)
+ 253   3            {
+ 254   4              JBE.Bat_Data.BatPowerPecent = 25;
+ 255   4            }
+ 256   3            else if (JBE.Bat_Data.Bat_Val < 3872)
+ 257   3            {
+ 258   4              JBE.Bat_Data.BatPowerPecent = 50;
+ 259   4            }
+ 260   3            else if (JBE.Bat_Data.Bat_Val < 4074)
+ 261   3            {
+ 262   4              JBE.Bat_Data.BatPowerPecent = 75;
+ 263   4            }
+ 264   3            else if (JBE.Bat_Data.Bat_Val < 4200)
+ 265   3            {
+ 266   4              JBE.Bat_Data.BatPowerPecent = 100;
+ 267   4            }
+ 268   3          }
+ 269   2      
+ 270   2          Voltage_Display(JBE.Bat_Data.BatPowerPecent); //µçÁ¿ÏÔÊ¾
+ 271   2        }
+ 272   1        else if (IsChargOn == False) //·Åµç
+ 273   1        {
+ 274   2          
+ 275   2          static uint8_t Pecent80Flag = 0; //ï¿½ï¿½Ö¾Î»ï¿½ï¿½ï¿½ï¿½
+ 276   2          static uint8_t Pecent60Flag = 0;
+ 277   2          static uint8_t Pecent40Flag = 0;
+ 278   2          static uint8_t Pecent20Flag = 0;
+ 279   2          static uint8_t Pecent0Flag = 0;
+ 280   2          JBE.Is_Bat_ChargFull = False;  //³äÂú±êÖ¾ÇåÁã
+ 281   2          LCD_SetOnePixel(1, 22, Disable); //
+ 282   2             // Sys_MODE=Sys_MODE_BATPower;//µç³Ø¹©µç×´Ì¬
+ 283   2          if (JBE.Bat_Data.Bat_Val > 3900) //´óÓÚ3.9VÏÔÊ¾Âúµç
+ 284   2          {
+ 285   3            if (Pecent80Flag == 0)
+ 286   3            {
+ 287   4              JBE.Bat_Data.BatPowerPecent = 100;
+ 288   4            }
+ 289   3            else if (Pecent80Flag == 1 && JBE.Bat_Data.Bat_Val > 3920) //0.02µÄµçÑ¹²î×÷ÎªÌ¨½×£¬µçÑ¹ÏÂ½µµ½80%ºó£¬Èç¹
+             -ûµçÑ¹»Ø¸´±ØÐë»Ø¸´µ½3.92²ÅÏÔÊ¾ÂúµçÒÔ·ÀÖ¹ÏÔÊ¾¶¶¶¯
+ 290   3            {
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 6   
+
+ 291   4              JBE.Bat_Data.BatPowerPecent = 100;
+ 292   4              Pecent80Flag = 0;
+ 293   4              Pecent60Flag = 0;
+ 294   4              Pecent40Flag = 0;
+ 295   4              Pecent20Flag = 0;
+ 296   4              Pecent0Flag = 0;
+ 297   4            }
+ 298   3            else
+ 299   3            {
+ 300   4              JBE.Bat_Data.BatPowerPecent = 75;
+ 301   4            }
+ 302   3          }
+ 303   2          else if (JBE.Bat_Data.Bat_Val > 3705)
+ 304   2          {
+ 305   3            Pecent80Flag = 1;
+ 306   3            if (Pecent60Flag == 0)
+ 307   3            {
+ 308   4              JBE.Bat_Data.BatPowerPecent = 75;
+ 309   4            }
+ 310   3            else if (Pecent60Flag == 1 && JBE.Bat_Data.Bat_Val > 3725)
+ 311   3            {
+ 312   4              JBE.Bat_Data.BatPowerPecent = 75;
+ 313   4      
+ 314   4              Pecent60Flag = 0;
+ 315   4              Pecent40Flag = 0;
+ 316   4              Pecent20Flag = 0;
+ 317   4              Pecent0Flag = 0;
+ 318   4            }
+ 319   3            else
+ 320   3            {
+ 321   4              JBE.Bat_Data.BatPowerPecent = 50;
+ 322   4            }
+ 323   3          }
+ 324   2          else if (JBE.Bat_Data.Bat_Val > 3600)
+ 325   2          {
+ 326   3            Pecent60Flag = 1;
+ 327   3            if (Pecent40Flag == 0)
+ 328   3            {
+ 329   4              JBE.Bat_Data.BatPowerPecent = 50;
+ 330   4            }
+ 331   3            else if (Pecent40Flag == 1 && JBE.Bat_Data.Bat_Val > 3610)
+ 332   3            {
+ 333   4              JBE.Bat_Data.BatPowerPecent = 50;
+ 334   4      
+ 335   4              Pecent40Flag = 0;
+ 336   4              Pecent20Flag = 0;
+ 337   4              Pecent0Flag = 0;
+ 338   4            }
+ 339   3            else
+ 340   3            {
+ 341   4              JBE.Bat_Data.BatPowerPecent = 25;
+ 342   4            }
+ 343   3          }
+ 344   2          else if (JBE.Bat_Data.Bat_Val > 3528)
+ 345   2          {
+ 346   3            Pecent40Flag = 1;
+ 347   3            if (Pecent20Flag == 0)
+ 348   3            {
+ 349   4              JBE.Bat_Data.BatPowerPecent = 25;
+ 350   4            }
+ 351   3            else if (Pecent20Flag == 1 && JBE.Bat_Data.Bat_Val > 3550)
+ 352   3            {
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 7   
+
+ 353   4              JBE.Bat_Data.BatPowerPecent = 25;
+ 354   4      
+ 355   4              Pecent20Flag = 0;
+ 356   4              Pecent0Flag = 0;
+ 357   4            }
+ 358   3            else
+ 359   3            {
+ 360   4              JBE.Bat_Data.BatPowerPecent = 0;
+ 361   4            }
+ 362   3          }
+ 363   2          else if (JBE.Bat_Data.Bat_Val > 3320)
+ 364   2          {
+ 365   3            Pecent20Flag = 1;
+ 366   3            if (Pecent0Flag == 0)
+ 367   3            {
+ 368   4              JBE.Bat_Data.BatPowerPecent = 0;
+ 369   4            }
+ 370   3            else if (Pecent0Flag == 1 && JBE.Bat_Data.Bat_Val > 3340)
+ 371   3            {
+ 372   4              JBE.Bat_Data.BatPowerPecent = 0;
+ 373   4      
+ 374   4              Pecent0Flag = 0;
+ 375   4            }
+ 376   3            else
+ 377   3            {
+ 378   4      
+ 379   4              JBE.Bat_Data.BatPowerPecent = 0;
+ 380   4            }
+ 381   3          }
+ 382   2          else
+ 383   2          {
+ 384   3            Pecent0Flag = 1;
+ 385   3      
+ 386   3            JBE.Bat_Data.BatPowerPecent = 0;
+ 387   3                  /*
+ 388   3            if ((JBE.Bat_Data.Bat_Val < 3100)&&Sys_MODE==Sys_MODE_BATPower) //ÔÚµç³Ø¹©µç×´Ì¬ÏÂÈç¹ûµçÑ¹µÍÓÚ3.1V,½øÈë
+             -¹©µçµçÑ¹µÍµÄ×´Ì¬
+ 389   3            {
+ 390   3              Sys_MODE=Sys_MODE_BATPowerLow;//½øÈëµÍµçÑ¹µÄ×´Ì¬
+ 391   3            }
+ 392   3            else if((JBE.Bat_Data.Bat_Val > 3200)&&Sys_MODE==Sys_MODE_BATPowerLow)//Èç¹û½øÈëÁËµÍµçÑ¹µÄ×´Ì¬ÒªµÈµçÑ¹»
+             -Ö¸´µ½3.2VÒÔºó²ÅÄÜ»Øµ½µç³Ø¹©µçÄ£Ê½
+ 393   3            {
+ 394   3                   Sys_MODE=Sys_MODE_BATPower;
+ 395   3            }
+ 396   3            */
+ 397   3          }
+ 398   2          Voltage_Display(JBE.Bat_Data.BatPowerPecent); //µçÁ¿ÏÔÊ¾
+ 399   2        }
+ 400   1      }
+ 401          
+ 402          uint16_t Get_NTC_Temp(void)
+ 403          {
+ 404   1        if (JBE.NTC_Data.IsFistGetTemp == True)
+ 405   1        {
+ 406   2          JBE.NTC_Data.NTC_Init = JBE.NTC_Data.NTC_Temp;
+ 407   2          JBE.NTC_Data.IsFistGetTemp = False;
+ 408   2        }
+ 409   1        return JBE.NTC_Data.NTC_Temp;
+ 410   1      }
+ 411          
+ 412          uint16_t Get_NTC_Init(void)
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 8   
+
+ 413          {
+ 414   1        return JBE.NTC_Data.NTC_Init;
+ 415   1      }
+ 416          
+ 417          void Voltage_Display(uint8_t percent)
+ 418          {
+ 419   1        static uint16_t flash_time = 0;
+ 420   1        if (IsChargOn == True) //³äµçÖÐ
+ 421   1        {
+ 422   2          switch (percent)
+ 423   2          {
+ 424   3          case 100:
+ 425   3            if (JBE.Bat_Data.Bat_Val > 4200)
+ 426   3            {
+ 427   4              LCD_SetOnePixel(0, 22, Enable);
+ 428   4              LCD_SetOnePixel(2, 23, Enable);
+ 429   4              LCD_SetOnePixel(3, 23, Enable);
+ 430   4              LCD_SetOnePixel(1, 23, Enable);
+ 431   4              LCD_SetOnePixel(0, 23, Enable);
+ 432   4              JBE.Is_Bat_ChargFull = True;
+ 433   4            }
+ 434   3            else if ((JBE.Bat_Data.Bat_Val <= 4200 && JBE.Is_Bat_ChargFull == False) || (JBE.Bat_Data.Bat_Val < 390
+             -0 && JBE.Is_Bat_ChargFull == True))
+ 435   3            {
+ 436   4              LCD_SetOnePixel(0, 22, Enable);
+ 437   4              LCD_SetOnePixel(1, 23, Enable);
+ 438   4              LCD_SetOnePixel(0, 23, Enable);
+ 439   4              LCD_SetOnePixel(3, 23, Enable);
+ 440   4              flash_time++;
+ 441   4      
+ 442   4              if (flash_time == 1)
+ 443   4              {
+ 444   5                LCD_SetOnePixel(2, 23, Enable);
+ 445   5              }
+ 446   4              else if (flash_time == 2)
+ 447   4              {
+ 448   5                LCD_SetOnePixel(2, 23, Disable);
+ 449   5                flash_time = 0;
+ 450   5              }
+ 451   4            }
+ 452   3            break;
+ 453   3      
+ 454   3          case 75:
+ 455   3            LCD_SetOnePixel(0, 22, Enable);
+ 456   3            LCD_SetOnePixel(2, 23, Disable);
+ 457   3            LCD_SetOnePixel(0, 23, Enable);
+ 458   3            LCD_SetOnePixel(3, 23, Enable);
+ 459   3            flash_time++;
+ 460   3      
+ 461   3            if (flash_time == 1)
+ 462   3            {
+ 463   4              LCD_SetOnePixel(1, 23, Enable);
+ 464   4            }
+ 465   3            else if (flash_time == 2)
+ 466   3            {
+ 467   4              LCD_SetOnePixel(1, 23, Disable);
+ 468   4              flash_time = 0;
+ 469   4            }
+ 470   3            break;
+ 471   3          case 50:
+ 472   3            LCD_SetOnePixel(0, 22, Enable);
+ 473   3            LCD_SetOnePixel(2, 23, Disable);
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 9   
+
+ 474   3            LCD_SetOnePixel(1, 23, Disable);
+ 475   3            LCD_SetOnePixel(3, 23, Enable);
+ 476   3            flash_time++;
+ 477   3      
+ 478   3            if (flash_time == 1)
+ 479   3            {
+ 480   4              LCD_SetOnePixel(0, 23, Enable);
+ 481   4            }
+ 482   3            else if (flash_time == 2)
+ 483   3            {
+ 484   4              LCD_SetOnePixel(0, 23, Disable);
+ 485   4              flash_time = 0;
+ 486   4            }
+ 487   3      
+ 488   3            break;
+ 489   3          case 25:
+ 490   3            flash_time++;
+ 491   3      
+ 492   3            LCD_SetOnePixel(2, 23, Disable);
+ 493   3            LCD_SetOnePixel(1, 23, Disable);
+ 494   3            LCD_SetOnePixel(0, 23, Disable);
+ 495   3            LCD_SetOnePixel(3, 23, Enable);
+ 496   3            if (flash_time == 1)
+ 497   3            {
+ 498   4              LCD_SetOnePixel(0, 22, Enable);
+ 499   4            }
+ 500   3            else if (flash_time == 2)
+ 501   3            {
+ 502   4              LCD_SetOnePixel(0, 22, Disable);
+ 503   4              flash_time = 0;
+ 504   4            }
+ 505   3            break;
+ 506   3          case 0:
+ 507   3      
+ 508   3            flash_time++;
+ 509   3            LCD_SetOnePixel(2, 23, Disable);
+ 510   3            LCD_SetOnePixel(1, 23, Disable);
+ 511   3            LCD_SetOnePixel(0, 23, Disable);
+ 512   3            LCD_SetOnePixel(0, 22, Disable);
+ 513   3            if (flash_time == 1)
+ 514   3            {
+ 515   4              LCD_SetOnePixel(3, 23, Enable);
+ 516   4            }
+ 517   3            else if (flash_time == 2)
+ 518   3            {
+ 519   4              LCD_SetOnePixel(3, 23, Disable);
+ 520   4              flash_time = 0;
+ 521   4            }
+ 522   3            break;
+ 523   3          default:
+ 524   3            break;
+ 525   3          }
+ 526   2        }
+ 527   1        else if (IsChargOn == False) //µç³Ø¹©µç
+ 528   1        {
+ 529   2          switch (percent)
+ 530   2          {
+ 531   3          case 100:
+ 532   3            LCD_SetOnePixel(0, 22, Enable);
+ 533   3            LCD_SetOnePixel(2, 23, Enable);
+ 534   3            LCD_SetOnePixel(3, 23, Enable);
+ 535   3            LCD_SetOnePixel(1, 23, Enable);
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 10  
+
+ 536   3            LCD_SetOnePixel(0, 23, Enable);
+ 537   3      
+ 538   3            break;
+ 539   3          case 75:
+ 540   3            LCD_SetOnePixel(0, 22, Enable);
+ 541   3            LCD_SetOnePixel(2, 23, Disable);
+ 542   3            LCD_SetOnePixel(3, 23, Enable);
+ 543   3            LCD_SetOnePixel(1, 23, Enable);
+ 544   3            LCD_SetOnePixel(0, 23, Enable);
+ 545   3            break;
+ 546   3          case 50:
+ 547   3            LCD_SetOnePixel(0, 22, Enable);
+ 548   3            LCD_SetOnePixel(2, 23, Disable);
+ 549   3            LCD_SetOnePixel(3, 23, Enable);
+ 550   3            LCD_SetOnePixel(1, 23, Disable);
+ 551   3            LCD_SetOnePixel(0, 23, Enable);
+ 552   3          case 25:
+ 553   3            LCD_SetOnePixel(0, 22, Enable);
+ 554   3            LCD_SetOnePixel(2, 23, Disable);
+ 555   3            LCD_SetOnePixel(3, 23, Enable);
+ 556   3            LCD_SetOnePixel(1, 23, Disable);
+ 557   3            LCD_SetOnePixel(0, 23, Disable);
+ 558   3            break;
+ 559   3          case 0: //
+ 560   3            if (JBE.Bat_Data.Bat_Val > 3320)
+ 561   3            {
+ 562   4              LCD_SetOnePixel(0, 22, Disable);
+ 563   4              LCD_SetOnePixel(2, 23, Disable);
+ 564   4              LCD_SetOnePixel(3, 23, Enable);
+ 565   4              LCD_SetOnePixel(1, 23, Disable);
+ 566   4              LCD_SetOnePixel(0, 23, Disable);
+ 567   4            }
+ 568   3            else
+ 569   3            {
+ 570   4              flash_time++;
+ 571   4              LCD_SetOnePixel(0, 22, Disable);
+ 572   4              LCD_SetOnePixel(2, 23, Disable);
+ 573   4              // LCD_SetOnePixel(3, 23, Enable);
+ 574   4              LCD_SetOnePixel(1, 23, Disable);
+ 575   4              LCD_SetOnePixel(0, 23, Disable);
+ 576   4              if (flash_time == 1)
+ 577   4              {
+ 578   5                LCD_SetOnePixel(1, 22, Enable); //
+ 579   5                LCD_SetOnePixel(3, 23, Enable);
+ 580   5              }
+ 581   4              else if (flash_time == 2)
+ 582   4              {
+ 583   5                LCD_SetOnePixel(1, 22, Disable);
+ 584   5                LCD_SetOnePixel(3, 23, Disable);
+ 585   5                flash_time = 0;
+ 586   5              }
+ 587   4            }
+ 588   3      
+ 589   3            break;
+ 590   3      
+ 591   3          default:
+ 592   3            break;
+ 593   3          }
+ 594   2        }
+ 595   1      }
+
+
+C51 COMPILER V9.60.0.0   ADC_USER                                                          11/11/2022 18:17:36 PAGE 11  
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3327    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    280       7
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

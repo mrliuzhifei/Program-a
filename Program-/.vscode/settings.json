@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "UART2_USER.C": "cpp",
+        "ml51.h": "c",
+        "sfr_macro_ml51.h": "c",
+        "led.h": "c",
+        "UART1_USER.C": "cpp"
+    }
+}

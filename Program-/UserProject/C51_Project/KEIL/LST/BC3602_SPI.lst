@@ -1,0 +1,177 @@
+C51 COMPILER V9.60.0.0   BC3602_SPI                                                        11/11/2022 18:17:38 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE BC3602_SPI
+OBJECT MODULE PLACED IN .\Output\BC3602_SPI.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\..\..\UserCode\User\src\BC3602_SPI.C LARGE OPTIMIZE(7,SPEED) BROWSE I
+                    -NCDIR(..\..\..\UserCode\Device\Include;..\..\..\UserCode\StdDriver\inc;..\..\..\UserCode\User\ins;..\..\..\UserCode\StdD
+                    -river\src;..\..\..\UserCode\StdDriver\lib) DEBUG OBJECTEXTEND PRINT(.\LST\BC3602_SPI.lst) TABS(2) OBJECT(.\Output\BC3602
+                    -_SPI.obj)
+
+line level    source
+
+   1          #include "BC3602_SPI.h "
+   2          #include "BC3602_CMD_REG.h"
+   3          #include "ML51.h"
+   4          void BC3602_SPI_IOConfig(void)
+   5          {
+   6   1      /*IO¿Ú³õÊ¼»¯*/
+   7   1      GPIO_SetMode(RFCSN_PORT ,RFCSN_PIN,GPIO_MODE_PUSHPULL);
+   8   1      Set_RFSDIO_Dir(Output);
+   9   1      GPIO_SetMode(RFSCK_PORT,RFSCK_PIN ,GPIO_MODE_PUSHPULL);
+  10   1      BC3602CSN=1 ; 
+  11   1      BC3602MOSI=1;
+  12   1      BC3602SCK=1 ;       
+  13   1      }
+  14          
+  15          void Set_RFSDIO_Dir(uint8_t Director)//ï¿½ï¿½ï¿½ï¿½RFSDIOï¿½ÚµÄ·ï¿½ï¿½ï¿½
+  16          {
+  17   1        if(Director==Output)
+  18   1        {
+  19   2         GPIO_SetMode(RFSDIO_PORT,RFSDIO_PIN ,GPIO_MODE_PUSHPULL);
+  20   2          
+  21   2        }
+  22   1        else if(Director==Input)
+  23   1        {
+  24   2          GPIO_SetMode(RFSDIO_PORT,RFSDIO_PIN ,GPIO_MODE_INPUT );
+  25   2         GPIO_Pull_Enable(RFSDIO_PORT,RFSDIO_PIN,PULLUP);
+  26   2        }
+  27   1      }
+  28          
+  29          void SpiWrite(unsigned char SIMD)
+  30          {
+  31   1      //#if (RF_SPI_line==3)
+  32   1        unsigned char cnt;
+  33   1        //RF_SDIO_CTR = 0;
+  34   1        Set_RFSDIO_Dir(Output);//ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿?
+  35   1        for (cnt=0;cnt<8;cnt++)
+  36   1        {
+  37   2          //RF_SCK = 0;
+  38   2          BC3602SCK=0;
+  39   2          if( SIMD & 0x80)
+  40   2            BC3602MOSI = 1; 
+  41   2          else
+  42   2            BC3602MOSI= 0;
+  43   2          SIMD = SIMD<<1;
+  44   2          //RF_SCK = 1;
+  45   2          BC3602SCK=1;
+  46   2        }
+  47   1        //RF_SCK = 0;
+  48   1        BC3602SCK=0;
+  49   1        
+  50   1      }
+  51          
+  52          //*******************************//
+C51 COMPILER V9.60.0.0   BC3602_SPI                                                        11/11/2022 18:17:38 PAGE 2   
+
+  53          // name   : SpiRead
+  54          // input  : none
+  55          // output : SPIdata
+  56          // stack  : 1
+  57          //*******************************//
+  58          unsigned char SpiRead(void)
+  59          {
+  60   1      //#if (RF_SPI_line==3)
+  61   1        unsigned char cnt,SIMD=0;
+  62   1        //RF_SDIO_CTR = 1;
+  63   1        Set_RFSDIO_Dir(Input);
+  64   1        //RF_SCK  = 0;
+  65   1        BC3602SCK=0;
+  66   1        for (cnt=0;cnt<8;cnt++)
+  67   1        {
+  68   2          SIMD = SIMD<<1;
+  69   2          //RF_SCK  = 1;
+  70   2          BC3602SCK=1;
+  71   2          if(BC3602MOSI)
+  72   2            SIMD |= 0x01; 
+  73   2          //RF_SCK  = 0;
+  74   2          BC3602SCK=0;
+  75   2        }
+  76   1        return SIMD;
+  77   1      
+  78   1      }
+  79          
+  80          void BC3602_StrobeCommand(unsigned char StrobeCmd)
+  81          { 
+  82   1          unsigned char cnt;
+  83   1          
+  84   1          Set_RFSDIO_Dir(Output);          //ÉèÖÃdioÎªÊä³ö
+  85   1          
+  86   1          BC3602CSN = 0;
+  87   1          for (cnt=0;cnt<8;cnt++)
+  88   1          {
+  89   2            BC3602SCK = 0;
+  90   2            if( StrobeCmd & 0x80)
+  91   2              BC3602MOSI = 1; 
+  92   2            else
+  93   2              BC3602MOSI = 0;
+  94   2            StrobeCmd = StrobeCmd<<1;
+  95   2            BC3602SCK = 1;
+  96   2          }
+  97   1          BC3602SCK = 0;  
+  98   1          BC3602CSN = 1;
+  99   1      }
+ 100          
+ 101          void BC3602_EnterLightSleep(void)
+ 102          {
+ 103   1        BC3602_StrobeCommand(LIGHT_SLEEP_CMD);
+ 104   1      }
+ 105          
+ 106          void BC3602_RegisterBank(unsigned char reg_Bank)
+ 107          {
+ 108   1          reg_Bank &= 0x03;
+ 109   1          reg_Bank |= REGS_BANK_CMD;
+ 110   1          BC3602_StrobeCommand(reg_Bank); 
+ 111   1      }
+ 112          
+ 113          void BC3602_WriteRegister(unsigned char reg,unsigned char value)
+ 114          { 
+C51 COMPILER V9.60.0.0   BC3602_SPI                                                        11/11/2022 18:17:38 PAGE 3   
+
+ 115   1          unsigned char cnt;
+ 116   1          
+ 117   1          Set_RFSDIO_Dir(Output);          //ÉèÖÃdioÎªÊä³ö
+ 118   1          
+ 119   1          reg &= REGSADDR_MASK;
+ 120   1          reg |= WRITE_REGS_CMD;
+ 121   1          BC3602CSN = 0;
+ 122   1          for (cnt=0;cnt<8;cnt++)
+ 123   1          {
+ 124   2            BC3602SCK = 0;
+ 125   2            if( reg & 0x80)
+ 126   2              BC3602MOSI = 1; 
+ 127   2            else
+ 128   2              BC3602MOSI = 0;
+ 129   2            reg = reg<<1;
+ 130   2            BC3602SCK = 1;
+ 131   2          }
+ 132   1          BC3602SCK = 0;  
+ 133   1          
+ 134   1          for (cnt=0;cnt<8;cnt++)
+ 135   1          {
+ 136   2            BC3602SCK = 0;
+ 137   2            if( value & 0x80)
+ 138   2              BC3602MOSI = 1; 
+ 139   2            else
+ 140   2              BC3602MOSI = 0;
+ 141   2            value = value<<1;
+ 142   2            BC3602SCK = 1;
+ 143   2          }
+ 144   1          BC3602SCK = 0;  
+ 145   1          
+ 146   1          BC3602CSN = 1;
+ 147   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    362    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

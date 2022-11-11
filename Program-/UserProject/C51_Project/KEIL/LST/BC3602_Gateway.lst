@@ -1,0 +1,175 @@
+C51 COMPILER V9.60.0.0   BC3602_GATEWAY                                                    11/11/2022 18:17:38 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE BC3602_GATEWAY
+OBJECT MODULE PLACED IN .\Output\BC3602_Gateway.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\..\..\UserCode\User\src\BC3602_Gateway.c LARGE OPTIMIZE(7,SPEED) BROW
+                    -SE INCDIR(..\..\..\UserCode\Device\Include;..\..\..\UserCode\StdDriver\inc;..\..\..\UserCode\User\ins;..\..\..\UserCode\
+                    -StdDriver\src;..\..\..\UserCode\StdDriver\lib) DEBUG OBJECTEXTEND PRINT(.\LST\BC3602_Gateway.lst) TABS(2) OBJECT(.\Outpu
+                    -t\BC3602_Gateway.obj)
+
+line level    source
+
+   1          #include "BC3602_Gateway.h"
+   2          #include "BC3602_CMD_REG.h"
+   3          #include "BC3602.h"
+   4          #include "KEY.h"
+   5          #include "ML51.h"
+   6          
+   7          typedef struct DeviceData_t //设备数据
+   8          {
+   9              uint8_t Data_Length;       //数据长度
+  10              uint8_t Command_Word;      //命令字
+  11              uint8_t GateWay_ID;        //网关ID
+  12              uint16_t Device_ID;        //设备ID
+  13              uint32_t Device_SN;        //设备SN码
+  14              uint8_t Protocol_Versions; //协议版本号
+  15              uint8_t Device_Type;       //设备类型
+  16              uint8_t Device_Num;        //设备型号
+  17              uint8_t Software_Versions; //软件版本
+  18              uint8_t Hardware_Versions; //硬件版本号
+  19              uint16_t Customer_ID;      //客户ID
+  20              uint16_t Produc_Date;      //生产日期
+  21          } DeviceData_t;
+  22          
+  23          typedef struct Sensor_Data_t //传感器数据
+  24          {
+  25              uint16_t Temp;              //温度
+  26              uint16_t Humi;              //湿度
+  27              uint16_t CO2_PecentMax;     //二氧化碳浓度最大值
+  28              uint16_t CO2_PecentAvr;     //二氧化碳浓度平均值
+  29              uint16_t CO2_PecentCurrent; //二氧化碳浓度当前值
+  30          } Sensor_Data_t;
+  31          
+  32          typedef enum BC3602_CmdData_s // 3602命令字
+  33          {
+  34              NetWoke_Access = 0x01,
+  35          } BC3602_CmdData_s;
+  36          
+  37          /*typedef  enum BC3602_RXSta_s     //3602状态
+  38          {
+  39          
+  40          }BC3602_RX_s;
+  41          
+  42          typedef  enum BC3602_TXSta_s     //3602状态
+  43          {
+  44          
+  45          }BC3602_TX_s;*/
+  46          
+  47          typedef enum BC3602_TXMod_s // 3602发送模式
+  48          {
+  49              Idle,               //空闲模式
+  50              Mod_NetWoke_Access, //入网请求模式
+  51              Mod_Active_Report,  //主动上报
+  52              Mod_Passive_Report, //被动上报
+C51 COMPILER V9.60.0.0   BC3602_GATEWAY                                                    11/11/2022 18:17:38 PAGE 2   
+
+  53          
+  54          } BC3602_TXMod_s;
+  55          
+  56          void Prepare_SendData(BC3602_TXMod_s BC3602_TX_M); //发送数据准备
+  57          
+  58          typedef struct BC3602_Data_t // 3602数据
+  59          {
+  60              uint8_t RX_buf[32]; //接收数组
+  61              uint8_t TX_buf[32]; //发送数组
+  62              BC3602_TXMod_s BC3602_TXMod;
+  63              DeviceData_t DeviceData;
+  64          } BC3602_Data_t;
+  65          BC3602_Data_t BC3602_Data;
+  66          
+  67          
+  68          void BC3602_TX_Process(void)
+  69          {
+  70   1          if (Get_AccessNet_Request() == TRUE)
+  71   1          {
+  72   2              if (Get_RF_Mode() != RF_TX)
+  73   2              {
+  74   3                  if (BC3602_Data.BC3602_TXMod == Idle)
+  75   3                      BC3602_Data.BC3602_TXMod = Mod_NetWoke_Access; //没有工作在接收模式且发送功�
+             -�在空闲状态中，把发送模式切到入网模式
+  76   3              }
+  77   2              Prepare_SendData(BC3602_Data.BC3602_TXMod);     //准备所要发送的数据//
+  78   2              BC3602_Data.BC3602_TXMod =Idle;
+  79   2              Clr_AccessNet_Request();//清除按键请求
+  80   2          }
+  81   1      }
+  82          
+  83          /******************************校验和计算***************************************/
+  84          uint8_t Get_Checksum(uint8_t *pucFrame, uint8_t usLen)
+  85          {
+  86   1          uint8_t Checksum, i;
+  87   1          for (i = 0; i < usLen + 1; i++)
+  88   1          {
+  89   2              Checksum = Checksum + pucFrame[i + 2];
+  90   2          }
+  91   1          return Checksum;
+  92   1      }
+  93          
+  94          /*******************************准备发送的数据***********************************/
+  95          void Prepare_SendData(BC3602_TXMod_s BC3602_TX_M) //发送数据准备
+  96          {
+  97   1          switch (BC3602_TX_M)
+  98   1          {
+  99   2          case Mod_NetWoke_Access:
+ 100   2              BC3602_Data.DeviceData.Data_Length = 0x14;
+ 101   2              BC3602_Data.DeviceData.Command_Word = 0x01;
+ 102   2              BC3602_Data.DeviceData.GateWay_ID = 0x00;
+ 103   2              BC3602_Data.DeviceData.Device_ID = 0x0000;
+ 104   2              BC3602_Data.DeviceData.Device_SN = 0x12345678;
+ 105   2              BC3602_Data.DeviceData.Protocol_Versions = 0x02;
+ 106   2              BC3602_Data.DeviceData.Device_Type = 0x06;
+ 107   2              BC3602_Data.DeviceData.Device_Num = 0x01;
+ 108   2              BC3602_Data.DeviceData.Software_Versions = 0x01;
+ 109   2              BC3602_Data.DeviceData.Hardware_Versions = 0x01;
+ 110   2              BC3602_Data.DeviceData.Customer_ID = 0x0001;
+ 111   2              BC3602_Data.DeviceData.Produc_Date = 0x2150;
+ 112   2              BC3602_Data.TX_buf[0] = 0xAA;
+ 113   2              BC3602_Data.TX_buf[1] = 0x55; //帧头
+C51 COMPILER V9.60.0.0   BC3602_GATEWAY                                                    11/11/2022 18:17:38 PAGE 3   
+
+ 114   2              BC3602_Data.TX_buf[2] = 0x01; //序列号
+ 115   2              BC3602_Data.TX_buf[3] = BC3602_Data.DeviceData.Data_Length;
+ 116   2              BC3602_Data.TX_buf[4] = BC3602_Data.DeviceData.Command_Word;
+ 117   2              BC3602_Data.TX_buf[5] = BC3602_Data.DeviceData.GateWay_ID;
+ 118   2              BC3602_Data.TX_buf[6] = BC3602_Data.DeviceData.Device_ID >> 8;
+ 119   2              BC3602_Data.TX_buf[7] = BC3602_Data.DeviceData.Device_ID;
+ 120   2              BC3602_Data.TX_buf[8] = BC3602_Data.DeviceData.Device_SN >> 24;
+ 121   2              BC3602_Data.TX_buf[9] = BC3602_Data.DeviceData.Device_SN >> 16;
+ 122   2              BC3602_Data.TX_buf[10] = BC3602_Data.DeviceData.Device_SN >> 8;
+ 123   2              BC3602_Data.TX_buf[11] = BC3602_Data.DeviceData.Device_SN;
+ 124   2              BC3602_Data.TX_buf[12] = BC3602_Data.DeviceData.Protocol_Versions;
+ 125   2              BC3602_Data.TX_buf[13] = BC3602_Data.DeviceData.Device_Type;
+ 126   2              BC3602_Data.TX_buf[14] = BC3602_Data.DeviceData.Device_Num;
+ 127   2              BC3602_Data.TX_buf[15] = BC3602_Data.DeviceData.Software_Versions;
+ 128   2              BC3602_Data.TX_buf[16] = BC3602_Data.DeviceData.Hardware_Versions;
+ 129   2              BC3602_Data.TX_buf[17] = BC3602_Data.DeviceData.Customer_ID >> 8;
+ 130   2              BC3602_Data.TX_buf[18] = BC3602_Data.DeviceData.Customer_ID;
+ 131   2              BC3602_Data.TX_buf[19] = BC3602_Data.DeviceData.Produc_Date >> 8;
+ 132   2              BC3602_Data.TX_buf[20] = BC3602_Data.DeviceData.Produc_Date;
+ 133   2              BC3602_Data.TX_buf[21] = 0x00;
+ 134   2              BC3602_Data.TX_buf[22] = 0x00;
+ 135   2              BC3602_Data.TX_buf[23] = Get_Checksum(BC3602_Data.TX_buf, BC3602_Data.DeviceData.Data_Length);
+ 136   2              memcpy(RF_TXFIFO,BC3602_Data.TX_buf,BC3602_Data.DeviceData.Data_Length+4);
+ 137   2              ReSet_RFstep();                               // reset RF step
+ 138   2              Set_RFmode(RF_TX);
+ 139   2              break;
+ 140   2      
+ 141   2          default:
+ 142   2              break;
+ 143   2          }
+ 144   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    437    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     83       3
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,276 @@
+C51 COMPILER V9.60.0.0   GPIO                                                              11/11/2022 18:17:35 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE GPIO
+OBJECT MODULE PLACED IN .\Output\gpio.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\..\..\UserCode\StdDriver\src\gpio.c LARGE OPTIMIZE(7,SPEED) BROWSE IN
+                    -CDIR(..\..\..\UserCode\Device\Include;..\..\..\UserCode\StdDriver\inc;..\..\..\UserCode\User\ins;..\..\..\UserCode\StdDr
+                    -iver\src;..\..\..\UserCode\StdDriver\lib) DEBUG OBJECTEXTEND PRINT(.\LST\gpio.lst) TABS(2) OBJECT(.\Output\gpio.obj)
+
+line level    source
+
+   1          /*--------------------------------------------------------------------------------------------------------
+             --*/
+   2          /*                                                                                                        
+             - */
+   3          /* Copyright(c) 2020 Nuvoton Technology Corp. All rights reserved.                                        
+             - */
+   4          /*                                                                                                        
+             - */
+   5          /*--------------------------------------------------------------------------------------------------------
+             --*/
+   6          
+   7          //********************************************************************************************************
+             -***
+   8          //  Website: http://www.nuvoton.com
+   9          //  E-Mail : MicroC-8bit@nuvoton.com
+  10          //********************************************************************************************************
+             -***
+  11          
+  12          #include "ML51.h"
+  13          //********************************************************************************************************
+             -********  
+  14          //**** GPIO interrupt enable setting step
+  15          //**** 1. Select pin interrupt channel PIT0~PIT7
+  16          //**** 2. Select trig status HIGH,LEVEL / LOW,LEVEL / RISING,EDGE / FALLING,EDGE / BOTH,EDGE /
+  17          //**** 3. Define interrupt port (PORT, BIT)
+  18          //**** For example: GPIO_EnableInt(PIT0,BOTH,EDGE,Port1,0) means P1.0 falling edge trig pin intterrupt cha
+             -nnel 0 (PIT0)
+  19          //GPIO_EnableInt(PIT0,FALLING,EDGE,1,3);  
+  20          void GPIO_EnableInt(unsigned char u8PIT, unsigned char u8IntStatus,unsigned char u8IntMode, unsigned char 
+             -u8Port, unsigned char u8Bit)
+  21          {
+  22   1          switch ((u8IntMode<<4)+u8PIT)
+  23   1          {
+  24   2            case 0x00:    clr_PICON_PIT0;  break;
+  25   2            case 0x01:    clr_PICON_PIT1;  break;
+  26   2            case 0x02:    clr_PICON_PIT2;  break;
+  27   2            case 0x03:    clr_PICON_PIT3;  break;
+  28   2            case 0x04:    clr_PICON_PIT4;  break;
+  29   2            case 0x05:    clr_PICON_PIT5;  break;
+  30   2            case 0x06:    clr_PICON_PIT6;  break;
+  31   2            case 0x07:    clr_PICON_PIT7;  break;
+  32   2            
+  33   2            case 0x10:    set_PICON_PIT0;  break;
+  34   2            case 0x11:    set_PICON_PIT1;  break;
+  35   2            case 0x12:    set_PICON_PIT2;  break;
+  36   2            case 0x13:    set_PICON_PIT3;  break;
+  37   2            case 0x14:    set_PICON_PIT4;  break;
+  38   2            case 0x15:    set_PICON_PIT5;  break;
+  39   2            case 0x16:    set_PICON_PIT6;  break;
+  40   2            case 0x17:    set_PICON_PIT7;  break;
+  41   2            default: break;
+  42   2          }
+  43   1          switch((u8IntStatus<<4)+u8PIT)
+C51 COMPILER V9.60.0.0   GPIO                                                              11/11/2022 18:17:35 PAGE 2   
+
+  44   1          {
+  45   2            case 0x00: set_PINEN_PINEN0;clr_PIPEN_PIPEN0; break;
+  46   2            case 0x01: set_PINEN_PINEN1;clr_PIPEN_PIPEN1; break;
+  47   2            case 0x02: set_PINEN_PINEN2;clr_PIPEN_PIPEN2; break;
+  48   2            case 0x03: set_PINEN_PINEN3;clr_PIPEN_PIPEN3; break;
+  49   2            case 0x04: set_PINEN_PINEN4;clr_PIPEN_PIPEN4; break;
+  50   2            case 0x05: set_PINEN_PINEN5;clr_PIPEN_PIPEN5; break;
+  51   2            case 0x06: set_PINEN_PINEN6;clr_PIPEN_PIPEN6; break;
+  52   2            case 0x07: set_PINEN_PINEN7;clr_PIPEN_PIPEN7; break; 
+  53   2            
+  54   2            case 0x10: clr_PINEN_PINEN0;set_PIPEN_PIPEN0; break;
+  55   2            case 0x11: clr_PINEN_PINEN1;set_PIPEN_PIPEN1; break;
+  56   2            case 0x12: clr_PINEN_PINEN2;set_PIPEN_PIPEN2; break;
+  57   2            case 0x13: clr_PINEN_PINEN3;set_PIPEN_PIPEN3; break;
+  58   2            case 0x14: clr_PINEN_PINEN4;set_PIPEN_PIPEN4; break;
+  59   2            case 0x15: clr_PINEN_PINEN5;set_PIPEN_PIPEN5; break;
+  60   2            case 0x16: clr_PINEN_PINEN6;set_PIPEN_PIPEN6; break;
+  61   2            case 0x17: clr_PINEN_PINEN7;set_PIPEN_PIPEN7; break;  
+  62   2            
+  63   2            case 0x20: set_PINEN_PINEN0;set_PIPEN_PIPEN0; break; 
+  64   2            case 0x21: set_PINEN_PINEN1;set_PIPEN_PIPEN1; break; 
+  65   2            case 0x22: set_PINEN_PINEN2;set_PIPEN_PIPEN2; break; 
+  66   2            case 0x23: set_PINEN_PINEN3;set_PIPEN_PIPEN3; break; 
+  67   2            case 0x24: set_PINEN_PINEN4;set_PIPEN_PIPEN4; break; 
+  68   2            case 0x25: set_PINEN_PINEN5;set_PIPEN_PIPEN5; break; 
+  69   2            case 0x26: set_PINEN_PINEN6;set_PIPEN_PIPEN6; break; 
+  70   2            case 0x27: set_PINEN_PINEN7;set_PIPEN_PIPEN7; break; 
+  71   2       
+  72   2            default: break;
+  73   2          }
+  74   1          switch(u8PIT)
+  75   1          {
+  76   2              case PIT0:PIPS0=0x00;PIPS0=(u8Port<<4)+(u8Bit&0x0F);break;      
+  77   2              case PIT1:PIPS1=0x00;PIPS1=(u8Port<<4)+(u8Bit&0x0F);break;                    
+  78   2              case PIT2:PIPS2=0x00;PIPS2=(u8Port<<4)+(u8Bit&0x0F);break;  
+  79   2              case PIT3:PIPS3=0x00;PIPS3=(u8Port<<4)+(u8Bit&0x0F);break;   
+  80   2              case PIT4:PIPS4=0x00;PIPS4=(u8Port<<4)+(u8Bit&0x0F);break;   
+  81   2              case PIT5:PIPS5=0x00;PIPS5=(u8Port<<4)+(u8Bit&0x0F);break;
+  82   2              case PIT6:PIPS6=0x00;PIPS6=(u8Port<<4)+(u8Bit&0x0F);break;
+  83   2              case PIT7:PIPS7=0x00;PIPS7=(u8Port<<4)+(u8Bit&0x0F);break;   
+  84   2              default: break;
+  85   2          }
+  86   1          set_EIE0_EPI;        //Pin interrupt enable bit
+  87   1      }
+  88          
+  89          
+  90          
+  91           /**
+  92            * @brief GPIO Pull up or Pull down enable setting
+  93            * @param[in] u8Port Decides the GPIO port number Port0 ~ Port5
+  94            * @param[in] u8PinMask Decides  bit of the port (SET_BIT0~SET_BIT7 use "|" to define multi bit).
+  95            * @param[in] u8PullMode Decides the GPIO Pull up or pull down (PullUp/PullDown)
+  96            * @return  None
+  97            * @note none
+  98            * @exmaple :   GPIO_Pull_Enable(P1,BIT0|BIT5|BIT7,PullUp);
+  99            */
+ 100            
+ 101            
+ 102          void GPIO_Pull_Enable(unsigned char u8Port, unsigned char u8PinMask, unsigned char u8PullMode)
+ 103          {
+ 104   1        SFRS=1;
+ 105   1        switch (u8PullMode)
+C51 COMPILER V9.60.0.0   GPIO                                                              11/11/2022 18:17:35 PAGE 3   
+
+ 106   1        {
+ 107   2          case PULLUP:
+ 108   2              switch(u8Port)
+ 109   2              {
+ 110   3                case Port0:  P0UP |= u8PinMask;  break;
+ 111   3                case Port1:  P1UP |= u8PinMask;  break;
+ 112   3                case Port2:  P2UP |= u8PinMask;  break;
+ 113   3                case Port3:  P3UP |= u8PinMask;  break;
+ 114   3                case Port4:  P4UP |= u8PinMask;  break;
+ 115   3                case Port5:  P5UP |= u8PinMask;  break;
+ 116   3                case Port6:  P6UP |= u8PinMask;  break;
+ 117   3              }
+ 118   2          break;
+ 119   2          case PULLDOWN:
+ 120   2              switch(u8Port)
+ 121   2              {
+ 122   3                case Port0:  P0DW |= u8PinMask;  break;
+ 123   3                case Port1:  P1DW |= u8PinMask;  break;
+ 124   3                case Port2:  P2DW |= u8PinMask;  break;
+ 125   3                case Port3:  P3DW |= u8PinMask;  break;
+ 126   3                case Port4:  P4DW |= u8PinMask;  break;
+ 127   3                case Port5:  P5DW |= u8PinMask;  break;
+ 128   3                case Port6:  P6DW |= u8PinMask;  break;
+ 129   3              }
+ 130   2          break;
+ 131   2          }
+ 132   1      }
+ 133          
+ 134          
+ 135           /**
+ 136            * @brief GPIO Pull up or Pull down disable 
+ 137            * @param[in] u8Port Decides the GPIO port number Port0 ~ Port5
+ 138            * @param[in] u8PinMask Decides  bit of the port (SET_BIT0~SET_BIT7 use "|" to define multi bit).
+ 139            * @param[in] u8PullMode Decides the GPIO Pull up or pull down (PullUp/PullDown)
+ 140            * @return  None
+ 141            * @note none
+ 142            * @exmaple :   GPIO_Pull_Enable(P1,BIT0|BIT5,PullUp);
+ 143            */
+ 144          void GPIO_Pull_Disable(unsigned char u8Port, unsigned char u8PinMask, unsigned char u8PullMode)
+ 145          {
+ 146   1        SFRS=1;
+ 147   1        switch (u8PullMode)
+ 148   1        {
+ 149   2          case PULLUP:
+ 150   2              switch(u8Port)
+ 151   2              {
+ 152   3                case Port0:  P0UP &= ~u8PinMask;  break;
+ 153   3                case Port1:  P1UP &= ~u8PinMask;  break;
+ 154   3                case Port2:  P2UP &= ~u8PinMask;  break;
+ 155   3                case Port3:  P3UP &= ~u8PinMask;  break;
+ 156   3                case Port4:  P4UP &= ~u8PinMask;  break;
+ 157   3                case Port5:  P5UP &= ~u8PinMask;  break;
+ 158   3                case Port6:  P6UP &= ~u8PinMask;  break;
+ 159   3              }
+ 160   2          break;
+ 161   2          case PULLDOWN:
+ 162   2              switch(u8Port)
+ 163   2              {
+ 164   3                case Port0:  P0DW &= ~u8PinMask;  break;
+ 165   3                case Port1:  P1DW &= ~u8PinMask;  break;
+ 166   3                case Port2:  P2DW &= ~u8PinMask;  break;
+ 167   3                case Port3:  P3DW &= ~u8PinMask;  break;
+C51 COMPILER V9.60.0.0   GPIO                                                              11/11/2022 18:17:35 PAGE 4   
+
+ 168   3                case Port4:  P4DW &= ~u8PinMask;  break;
+ 169   3                case Port5:  P5DW &= ~u8PinMask;  break;
+ 170   3                case Port6:  P6DW &= ~u8PinMask;  break;
+ 171   3              }
+ 172   2          break;
+ 173   2          }
+ 174   1      }
+ 175          
+ 176          
+ 177           /**
+ 178            * @brief GPIO mode setting
+ 179            * @param[in] u8Port Decides the GPIO port number Port0 ~ Port5
+ 180            * @param[in] u8PinMask Decides  bit of the port ( from SET_BIT0~SET_BIT7 use "|" to define multi bit)
+ 181            * @param[in] u8Mode Decides the GPIO mode GPIO_MODE_INPUT / GPIO_MODE_PUSHPULL / GPIO_MODE_QUASI / GPIO_
+             -MODE_OPENDRAI for mode to select.
+ 182            * @return  None
+ 183            * @note Confirm multi function pin is defined as GPIO first. call function_define_ML51.h to define.
+ 184            * @exmaple :   GPIO_SetMode(Port1,BIT0|BIT7,GPIO_MODE_QUASI);
+ 185            */
+ 186          void GPIO_SetMode(unsigned char u8Port, unsigned char u8PinMask, unsigned char u8Mode)
+ 187          {
+ 188   1          unsigned char u8PnM1, u8PnM2;
+ 189   1      
+ 190   1          SFRS = 1;
+ 191   1          switch(u8Port)
+ 192   1          {
+ 193   2              case Port0:  u8PnM1 = P0M1;  u8PnM2 = P0M2;  break;
+ 194   2              case Port1:  u8PnM1 = P1M1;  u8PnM2 = P1M2;  break;
+ 195   2              case Port2:  u8PnM1 = P2M1;  u8PnM2 = P2M2;  break;
+ 196   2              case Port3:  u8PnM1 = P3M1;  u8PnM2 = P3M2;  break;
+ 197   2              case Port4:  u8PnM1 = P4M1;  u8PnM2 = P4M2;  break;
+ 198   2              case Port5:  u8PnM1 = P5M1;  u8PnM2 = P5M2;  break;
+ 199   2              case Port6:  u8PnM1 = P6M1;  u8PnM2 = P6M2;  break;
+ 200   2          }
+ 201   1          switch(u8Mode)
+ 202   1          {
+ 203   2              case GPIO_MODE_QUASI:
+ 204   2                  u8PnM1 &= ~u8PinMask;
+ 205   2                  u8PnM2 &= ~u8PinMask;
+ 206   2                  break;
+ 207   2              case GPIO_MODE_PUSHPULL:
+ 208   2                  u8PnM1 &= ~u8PinMask;
+ 209   2                  u8PnM2 |= u8PinMask;
+ 210   2                  break;
+ 211   2              case GPIO_MODE_INPUT:
+ 212   2                  u8PnM1 |= u8PinMask; 
+ 213   2                  u8PnM2 &= ~u8PinMask;
+ 214   2                  break;
+ 215   2              case GPIO_MODE_OPENDRAIN:
+ 216   2                  u8PnM1 |= u8PinMask;
+ 217   2                  u8PnM2 |= u8PinMask;
+ 218   2                  break;
+ 219   2          }
+ 220   1          switch(u8Port)
+ 221   1          {
+ 222   2              case Port0:  P0M1 = u8PnM1;  P0M2 = u8PnM2;  break;
+ 223   2              case Port1:  P1M1 = u8PnM1;  P1M2 = u8PnM2;  break;
+ 224   2              case Port2:  P2M1 = u8PnM1;  P2M2 = u8PnM2;  break;
+ 225   2              case Port3:  P3M1 = u8PnM1;  P3M2 = u8PnM2;  break;
+ 226   2              case Port4:  P4M1 = u8PnM1;  P4M2 = u8PnM2;  break;
+ 227   2              case Port5:  P5M1 = u8PnM1;  P5M2 = u8PnM2;  break;
+ 228   2              case Port6:  P6M1 = u8PnM1;  P6M2 = u8PnM2;  break;
+C51 COMPILER V9.60.0.0   GPIO                                                              11/11/2022 18:17:35 PAGE 5   
+
+ 229   2          }
+ 230   1         SFRS = 0;  
+ 231   1          
+ 232   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1339    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
